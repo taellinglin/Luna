@@ -1,0 +1,45 @@
+[build-system]
+requires = ["briefcase"]
+
+[tool.briefcase]
+project_name = "LinQR"
+bundle = "org.linqr"
+version = "1.0.0"
+url = "https://github.com/linglinr"
+author = "Ling Lin"
+author_email = "taellinglin@gmail.com"
+license = { file = "LICENSE" }
+
+[tool.briefcase.app.linqr]
+formal_name = "LinQR"
+description = "Colorful QR Code Generator and Link Manager"
+sources = ["src/linqr"]
+requires = [
+    "kivy==2.3.0",  # Use a version known to work with Android
+    "qrcode",
+    "pillow",
+    "numpy"
+]
+
+[tool.briefcase.app.linqr.android]
+permissions = [
+    "android.permission.WRITE_EXTERNAL_STORAGE",
+    "android.permission.READ_EXTERNAL_STORAGE"
+]
+
+# Add build_gradle_dependencies
+build_gradle_dependencies = [
+    "androidx.appcompat:appcompat:1.6.1",
+    "androidx.constraintlayout:constraintlayout:2.1.4",
+    "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0",
+    "androidx.core:core-ktx:1.12.0"
+]
+
+# Add Chaquopy configuration for pre-built packages
+[tool.briefcase.app.linqr.android.chaquopy]
+requirements = [
+    "kivymd",
+    "qrcode",
+    "pillow",
+    "numpy"
+]
