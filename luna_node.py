@@ -1,26 +1,185 @@
 #!/usr/bin/env python3
 """
-lincoin_node.py - The Luna Coin blockchain node and miner with P2P networking.
+luna_node.py - The Luna Coin blockchain node and miner with P2P networking.
 Elaborate mining system with denomination-based rewards, real-time statistics, and peer-to-peer networking.
 """
-import json
-import hashlib
-import time
 import os
 import sys
-from typing import List, Dict, Set
+import ssl
+import certifi
+import json
+
+def configure_ssl_for_frozen_app():
+    """Configure SSL for PyInstaller frozen applications"""
+    
+    # Remove the DLL copying code entirely and rely on proper PyInstaller configuration
+    if getattr(sys, 'frozen', False):
+        # PyInstaller should handle this automatically if configured correctly
+        print("🔐 Running as frozen application - SSL should be bundled")
+        
+        # Verify SSL is working
+        try:
+            import ssl
+            context = ssl.create_default_context()
+            print("✅ SSL is working correctly")
+        except Exception as e:
+            print(f"❌ SSL error: {e}")
+            # Fallback: disable SSL verification for internal APIs only
+            import warnings
+            warnings.filterwarnings('ignore', message='Unverified HTTPS request')
+
+# Now set PATH to include current directory
+os.environ['PATH'] = os.getcwd() + os.pathsep + os.environ['PATH']
+import hashlib
+import time
 import threading
 import math
 import socket
 import atexit
 import random
 import uuid
-import requests
 from urllib.parse import urlparse
-import netifaces
-import pystray
-from PIL import Image
-import subprocess
+from typing import List, Dict, Set
+
+# Try to use a simpler HTTP client that works better with PyInstaller
+try:
+    import urllib.request
+    import urllib.error
+    # Create a simple SSL context that should work with PyInstaller
+    # Configure SSL at application startup
+    
+    # Disable SSL verification for simplicity
+    SSL_AVAILABLE = True
+    print("🔐 SSL configured (verification disabled)")
+except ImportError as e:
+    print(f"⚠️ SSL not available: {e}")
+    SSL_AVAILABLE = False
+
+# Try to import netifaces, but provide fallback if not available
+try:
+    import netifaces
+    NETIFACES_AVAILABLE = True
+except ImportError:
+    print("⚠️ netifaces not available, using basic network detection")
+    NETIFACES_AVAILABLE = False
+
+class DataManager:
+    """Manages data storage with EXE directory fallback to ProgramData"""
+    
+    @staticmethod
+    def get_data_dir():
+        """Get the best data directory (EXE dir first, then ProgramData fallback)"""
+        # First try: Same directory as the executable
+        if getattr(sys, 'frozen', False):
+            # Running as compiled executable
+            exe_dir = os.path.dirname(sys.executable)
+        else:
+            # Running as script
+            exe_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Test if we can write to the EXE directory
+        exe_data_dir = os.path.join(exe_dir, 'data')
+        try:
+            # Create data subdirectory and test write permissions
+            os.makedirs(exe_data_dir, exist_ok=True)
+            test_file = os.path.join(exe_data_dir, 'write_test.tmp')
+            with open(test_file, 'w') as f:
+                f.write('test')
+            os.remove(test_file)
+            print(f"📁 Using EXE directory for data: {exe_data_dir}")
+            return exe_data_dir
+        except (PermissionError, OSError):
+            # Fallback: ProgramData directory
+            if os.name == 'nt':  # Windows
+                programdata = os.environ.get('PROGRAMDATA', 'C:\\ProgramData')
+                programdata_dir = os.path.join(programdata, 'Luna Suite')
+            else:  # Linux/Mac
+                programdata_dir = '/var/lib/luna-suite'
+            
+            # Create ProgramData directory
+            os.makedirs(programdata_dir, exist_ok=True)
+            print(f"📁 Using ProgramData directory for data: {programdata_dir}")
+            return programdata_dir
+    
+    @staticmethod
+    def get_file_path(filename):
+        """Get full path for a data file with fallback support"""
+        data_dir = DataManager.get_data_dir()
+        return os.path.join(data_dir, filename)
+    
+    @staticmethod
+    def save_json(filename, data):
+        """Save data to JSON file with fallback support"""
+        file_path = DataManager.get_file_path(filename)
+        try:
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2)
+            print(f"💾 Saved {filename} to {file_path}")
+            return True
+        except Exception as e:
+            print(f"❌ Error saving {filename}: {e}")
+            return False
+    
+    @staticmethod
+    def load_json(filename, default=None):
+        """Load data from JSON file with fallback support"""
+        if default is None:
+            default = []
+        
+        file_path = DataManager.get_file_path(filename)
+        try:
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            else:
+                print(f"⚠️  {filename} not found, using default")
+                return default
+        except Exception as e:
+            print(f"❌ Error loading {filename}: {e}")
+            return default
+
+class SimpleHTTPClient:
+    """A simple HTTP client that works with PyInstaller"""
+    
+    @staticmethod
+    def get(url, timeout=30):
+        """Simple HTTP GET request"""
+        try:
+            if SSL_AVAILABLE:
+                # Use urllib with SSL disabled
+                req = urllib.request.Request(url)
+                response = urllib.request.urlopen(req, timeout=timeout)
+                return response.read().decode('utf-8')
+            else:
+                # Fallback: try without SSL for http URLs
+                if url.startswith('https://'):
+                    # Try http instead
+                    http_url = url.replace('https://', 'http://', 1)
+                    print(f"⚠️  SSL not available, trying HTTP: {http_url}")
+                    req = urllib.request.Request(http_url)
+                    response = urllib.request.urlopen(req, timeout=timeout)
+                    return response.read().decode('utf-8')
+                else:
+                    req = urllib.request.Request(url)
+                    response = urllib.request.urlopen(req, timeout=timeout)
+                    return response.read().decode('utf-8')
+        except Exception as e:
+            print(f"❌ HTTP request failed for {url}: {e}")
+            return None
+    
+    @staticmethod
+    def get_json(url, timeout=30):
+        """Get JSON data from URL"""
+        response_text = SimpleHTTPClient.get(url, timeout)
+        if response_text:
+            try:
+                return json.loads(response_text)
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON decode error for {url}: {e}")
+        return None
 
 class Block:
     def __init__(self, index: int, previous_hash: str, timestamp: float, transactions: List[Dict], nonce: int = 0):
@@ -78,24 +237,31 @@ class Block:
         return True
 
 class Blockchain:
-    def __init__(self, chain_file="blockchain.json", node_address=None):
-        self.chain_file = chain_file
+    def __init__(self, node_address=None):
+        # Use ProgramData for all file storage
+        self.chain_file = "blockchain.json"
         self.verification_base_url = "https://bank.linglin.art/verify/"
         self.chain = self.load_chain() or [self.create_genesis_block()]
+        
+        # Multi-difficulty mining configuration
         self.difficulty = 6
         self.pending_transactions = []
-        self.base_mining_reward = 50  # Base reward amount
+        self.base_mining_reward = 50
         self.total_blocks_mined = 0
         self.total_mining_time = 0
         self.is_mining = False
         self.wallet_server_running = False
         self.stop_event = threading.Event()
         
+        # Anti-spam measures
+        self.user_limits = {}  # Track bills per user
+        self.max_mining_attempts = 3  # Maximum attempts per bill
+        
         # P2P Networking
         self.node_address = node_address or self.generate_node_address()
         self.peers: Set[str] = set()
         self.peer_discovery_running = False
-        self.peer_discovery_interval = 300  # 5 minutes
+        self.peer_discovery_interval = 300
         self.known_peers_file = "known_peers.json"
         self.load_known_peers()
         
@@ -104,100 +270,123 @@ class Blockchain:
         self.current_hash_rate = 0
         self.current_hash = ""
         
-        # Bill denominations mapped to difficulty levels - Linear orders of 10
+        # Multi-difficulty mining configuration
+        self.difficulty_requirements = {
+            "1": {"difficulty": 0, "min_time": 0.1, "max_attempts": 10},
+            "10": {"difficulty": 1, "min_time": 1, "max_attempts": 8},
+            "100": {"difficulty": 2, "min_time": 5, "max_attempts": 6},
+            "1000": {"difficulty": 3, "min_time": 15, "max_attempts": 4},
+            "10000": {"difficulty": 4, "min_time": 30, "max_attempts": 3},
+            "100000": {"difficulty": 5, "min_time": 60, "max_attempts": 2},
+            "1000000": {"difficulty": 6, "min_time": 300, "max_attempts": 2},
+            "10000000": {"difficulty": 7, "min_time": 900, "max_attempts": 1},
+            "100000000": {"difficulty": 8, "min_time": 3600, "max_attempts": 1}
+        }
+        
+        # Bill denominations and rarity
         self.difficulty_denominations = {
-            1: {"1": 1, "10": 2},                           # Very Easy
-            2: {"1": 1, "10": 2, "100": 3},                 # Easy
-            3: {"10": 2, "100": 3, "1000": 4},              # Medium
-            4: {"100": 3, "1000": 4, "10000": 5},           # Hard
-            5: {"1000": 4, "10000": 5, "100000": 6},        # Very Hard
-            6: {"10000": 5, "100000": 6, "1000000": 7},     # Expert
-            7: {"100000": 6, "1000000": 7, "10000000": 8},  # Master
-            8: {"1000000": 7, "10000000": 8, "100000000": 9} # Legendary
+            1: {"1": 1, "10": 2},
+            2: {"1": 1, "10": 2, "100": 3},
+            3: {"10": 2, "100": 3, "1000": 4},
+            4: {"100": 3, "1000": 4, "10000": 5},
+            5: {"1000": 4, "10000": 5, "100000": 6},
+            6: {"10000": 5, "100000": 6, "1000000": 7},
+            7: {"100000": 6, "1000000": 7, "10000000": 8},
+            8: {"1000000": 7, "10000000": 8, "100000000": 9}
         }
 
-        # Bill rarity weights - Linear progression (higher denomination = more rare)
         self.bill_rarity = {
-            "1": 100,         # Most common
-            "10": 90,         # Very common
-            "100": 80,        # Common
-            "1000": 70,       # Somewhat common
-            "10000": 60,      # Average
-            "100000": 50,     # Uncommon
-            "1000000": 40,    # Rare
-            "10000000": 30,   # Very rare
-            "100000000": 20   # Extremely rare
+            "1": 100, "10": 90, "100": 80, "1000": 70,
+            "10000": 60, "100000": 50, "1000000": 40,
+            "10000000": 30, "100000000": 20
         }
+        
+        # User limits per denomination
+        self.denomination_limits = {
+            "1": 100,      # Can create many 1's
+            "10": 50,      # Fewer 10's
+            "100": 25,     # Even fewer 100's
+            "1000": 10,
+            "10000": 5,
+            "100000": 3,
+            "1000000": 2,
+            "10000000": 1,
+            "100000000": 1
+        }
+        
+        self.sync_all()
+
+    def save_chain(self):
+        """Save blockchain to storage"""
+        try:
+            chain_data = []
+            for block in self.chain:
+                chain_data.append({
+                    "index": block.index,
+                    "previous_hash": block.previous_hash,
+                    "timestamp": block.timestamp,
+                    "transactions": block.transactions,
+                    "nonce": block.nonce,
+                    "hash": block.hash,
+                    "mining_time": block.mining_time
+                })
+            
+            DataManager.save_json(self.chain_file, chain_data)
+            print(f"💾 Blockchain saved with {len(self.chain)} blocks")
+        except Exception as e:
+            print(f"❌ Error saving blockchain: {e}")
 
     def generate_node_address(self):
         """Generate a unique node address"""
         return f"node_{hashlib.sha256(str(time.time()).encode()).hexdigest()[:12]}"
 
     def load_known_peers(self):
-        """Load known peers from file"""
+        """Load known peers from storage"""
         try:
-            if os.path.exists(self.known_peers_file):
-                with open(self.known_peers_file, 'r') as f:
-                    self.peers = set(json.load(f))
-                    print(f"✅ Loaded {len(self.peers)} known peers")
-        except:
-            print("⚠️  Could not load known peers, starting fresh")
+            peers_data = DataManager.load_json(self.known_peers_file, [])
+            self.peers = set(peers_data)
+            print(f"✅ Loaded {len(self.peers)} known peers")
+        except Exception as e:
+            print(f"⚠️  Could not load known peers: {e}")
             self.peers = set()
 
     def save_known_peers(self):
-        """Save known peers to file"""
+        """Save known peers to storage"""
         try:
-            with open(self.known_peers_file, 'w') as f:
-                json.dump(list(self.peers), f)
+            DataManager.save_json(self.known_peers_file, list(self.peers))
         except Exception as e:
             print(f"❌ Error saving known peers: {e}")
 
     def add_peer(self, peer_address: str):
         """Add a peer if it's not ourselves"""
-        # Remove any protocol prefix if present
         if "://" in peer_address:
-            from urllib.parse import urlparse
             url = urlparse(peer_address)
             peer_address = f"{url.hostname}:{url.port or 9335}"
         
-        # Basic validation
         if not peer_address or ":" not in peer_address:
             print(f"❌ Invalid peer address format: {peer_address}")
             return False
         
-        # Check if it's our own address (prevent self-connection)
-        local_ips = [
-            "127.0.0.1", "localhost", "0.0.0.0",
-            "::1", "127.0.0.1:9335", "localhost:9335"
-        ]
-        
-        # Add current machine's IP addresses
+        # Skip self-connections
+        local_ips = ["127.0.0.1", "localhost", "0.0.0.0", "::1"]
         try:
             hostname = socket.gethostname()
             local_ip = socket.gethostbyname(hostname)
             local_ips.extend([local_ip, f"{local_ip}:9335"])
             
-            # Get all network interface IPs
-            for interface in netifaces.interfaces():
-                addrs = netifaces.ifaddresses(interface)
-                if netifaces.AF_INET in addrs:
-                    for addr in addrs[netifaces.AF_INET]:
-                        ip = addr['addr']
-                        local_ips.extend([ip, f"{ip}:9335"])
+            if NETIFACES_AVAILABLE:
+                for interface in netifaces.interfaces():
+                    addrs = netifaces.ifaddresses(interface)
+                    if netifaces.AF_INET in addrs:
+                        for addr in addrs[netifaces.AF_INET]:
+                            ip = addr['addr']
+                            local_ips.extend([ip, f"{ip}:9335"])
         except:
             pass
         
-        # Check if peer is one of our local addresses
         if peer_address in local_ips:
             print(f"⏭️  Skipping self as peer: {peer_address}")
             return False
-        
-        # Check if it's the same as our node address
-        if hasattr(self, 'node_host') and hasattr(self, 'node_port'):
-            my_address = f"{self.node_host}:{self.node_port}"
-            if peer_address == my_address:
-                print(f"⏭️  Skipping self as peer: {peer_address}")
-                return False
         
         if peer_address not in self.peers:
             self.peers.add(peer_address)
@@ -240,18 +429,8 @@ class Blockchain:
                     print(f"   ✅ Discovered {len(new_peers)} peers from {peer}")
                 else:
                     print(f"   ❌ No response from {peer}")
-                    # Remove unresponsive peer after multiple failures
-                    if hasattr(peer, 'failure_count'):
-                        peer.failure_count += 1
-                        if peer.failure_count > 3:
-                            self.remove_peer(peer)
-                    else:
-                        # Initialize failure count
-                        peer.failure_count = 1
             except Exception as e:
                 print(f"   ❌ Error discovering peers from {peer}: {e}")
-                # Remove unresponsive peer
-                self.remove_peer(peer)
         
         print(f"✅ Discovered {new_peers_count} new peers total")
 
@@ -274,7 +453,7 @@ class Blockchain:
                     
             except Exception as e:
                 print(f"❌ Error in peer discovery: {e}")
-                time.sleep(60)  # Wait a minute before retrying
+                time.sleep(60)
         
         self.peer_discovery_running = False
 
@@ -290,13 +469,6 @@ class Blockchain:
         
         for peer in peers_to_test:
             try:
-                # Check if we're trying to connect to ourselves
-                if hasattr(self, 'node_host') and hasattr(self, 'node_port'):
-                    my_address = f"{self.node_host}:{self.node_port}"
-                    if peer == my_address:
-                        print(f"⏭️  Skipping self: {peer}")
-                        continue
-                
                 print(f"   Testing {peer}...")
                 response = self.send_to_peer(peer, {"action": "ping"}, timeout=5)
                 if response and response.get("status") == "success":
@@ -323,35 +495,27 @@ class Blockchain:
     def send_to_peer(self, peer_address: str, data: Dict, timeout=10):
         """Send data to a peer node using direct socket connection"""
         try:
-            # Parse peer address (format: "ip:port")
             if "://" in peer_address:
-                # Extract host and port from HTTP URL format
-                from urllib.parse import urlparse
                 url = urlparse(peer_address)
                 host = url.hostname
-                port = url.port or 9335  # Default port if not specified
+                port = url.port or 9335
             else:
-                # Direct IP:PORT format
                 if ":" in peer_address:
                     host, port_str = peer_address.split(":", 1)
                     port = int(port_str)
                 else:
-                    # If no port specified, use default
                     host = peer_address
                     port = 9335
             
-            # Create a socket connection
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(timeout)
                 s.connect((host, port))
                 
-                # Send data with length prefix
                 data_json = json.dumps(data)
                 data_length = len(data_json.encode())
                 s.sendall(data_length.to_bytes(4, 'big'))
                 s.sendall(data_json.encode())
                 
-                # Receive response
                 length_bytes = s.recv(4)
                 if not length_bytes:
                     return None
@@ -375,9 +539,6 @@ class Blockchain:
             print(f"❌ Connection refused by {peer_address}")
         except Exception as e:
             print(f"❌ Error communicating with peer {peer_address}: {e}")
-            # Remove unresponsive peer
-            if hasattr(self, 'remove_peer'):
-                self.remove_peer(peer_address)
         
         return None
 
@@ -396,74 +557,33 @@ class Blockchain:
         
         return successful_broadcasts
 
-    def validate_chain(self, chain):
-        """Validate a complete blockchain"""
-        if not chain:
-            return False
-        
-        # Check genesis block
-        if chain[0].index != 0 or chain[0].previous_hash != "0":
-            print("❌ Invalid genesis block")
-            return False
-        
-        # Check each block
-        for i in range(1, len(chain)):
-            current_block = chain[i]
-            previous_block = chain[i-1]
-            
-            # Check block hash validity
-            if current_block.hash != current_block.calculate_hash():
-                print(f"❌ Block {current_block.index} has invalid hash")
-                return False
-            
-            # Check chain linkage
-            if current_block.previous_hash != previous_block.hash:
-                print(f"❌ Block {current_block.index} has invalid previous hash")
-                return False
-            
-            # Check block index order
-            if current_block.index != previous_block.index + 1:
-                print(f"❌ Block {current_block.index} has invalid index")
-                return False
-        
-        return True
-
-    def save_chain(self):
-        """Save blockchain to file"""
-        try:
-            chain_data = []
-            for block in self.chain:
-                chain_data.append({
-                    "index": block.index,
-                    "previous_hash": block.previous_hash,
-                    "timestamp": block.timestamp,
-                    "transactions": block.transactions,
-                    "nonce": block.nonce,
-                    "hash": block.hash,
-                    "mining_time": block.mining_time
-                })
-            
-            with open("blockchain.json", "w") as f:
-                json.dump(chain_data, f, indent=2)
-            print("💾 Blockchain saved to blockchain.json")
-        except Exception as e:
-            print(f"❌ Error saving blockchain: {e}")
-
     def download_from_web(self, resource_type="blockchain"):
-        """Download blockchain or mempool from web server"""
+        """Download blockchain or mempool from web server using simple HTTP client"""
         base_url = "https://bank.linglin.art/"
         url = f"{base_url}{resource_type}"
         
         try:
             print(f"🌐 Downloading {resource_type} from {url}...")
-            response = requests.get(url, timeout=30)
             
-            if response.status_code == 200:
+            # First, let's try to get the raw response to see what we're getting
+            response_text = SimpleHTTPClient.get(url)
+            if response_text:
+                print(f"📥 Raw response length: {len(response_text)} characters")
+                
+                try:
+                    data = json.loads(response_text)
+                except json.JSONDecodeError as e:
+                    print(f"❌ JSON decode error: {e}")
+                    return False
+            else:
+                print(f"❌ No response from {url}")
+                return False
+            
+            if data is not None:
                 if resource_type == "blockchain":
-                    chain_data = response.json()
-                    # Convert to Block objects
-                    new_chain = []
-                    for block_data in chain_data:
+                    if resource_type == "blockchain":
+                        new_chain = []
+                    for block_data in data:
                         block = Block(
                             block_data["index"],
                             block_data["previous_hash"],
@@ -477,38 +597,80 @@ class Blockchain:
                     
                     if self.validate_chain(new_chain):
                         self.chain = new_chain
-                        self.save_chain()
-                        print(f"✅ Downloaded and validated blockchain with {len(chain_data)} blocks")
+                        # Check if save_chain method exists before calling it
+                        if hasattr(self, 'save_chain') and callable(getattr(self, 'save_chain')):
+                            self.save_chain()
+                        else:
+                            # Fallback: save directly
+                            chain_data = []
+                            for block in self.chain:
+                                chain_data.append({
+                                    "index": block.index,
+                                    "previous_hash": block.previous_hash,
+                                    "timestamp": block.timestamp,
+                                    "transactions": block.transactions,
+                                    "nonce": block.nonce,
+                                    "hash": block.hash,
+                                    "mining_time": block.mining_time
+                                })
+                            DataManager.save_json(self.chain_file, chain_data)
+                        print(f"✅ Downloaded and validated blockchain with {len(data)} blocks")
                         return True
                     else:
                         print("❌ Downloaded blockchain failed validation")
+                    
                 elif resource_type == "mempool":
-                    mempool_data = response.json()
-                    self.pending_transactions = mempool_data
-                    self.save_mempool()
-                    print(f"✅ Downloaded mempool with {len(mempool_data)} transactions")
-                    return True
+                    print(f"🔍 Mempool data type: {type(data)}")
+                    
+                    if isinstance(data, list):
+                        self.pending_transactions = data
+                        self.save_mempool()
+                        print(f"✅ Downloaded mempool with {len(data)} transactions")
+                        return True
+                    elif isinstance(data, dict):
+                        # Maybe the mempool is wrapped in a dictionary
+                        if 'transactions' in data:
+                            self.pending_transactions = data['transactions']
+                            self.save_mempool()
+                            print(f"✅ Downloaded mempool with {len(data['transactions'])} transactions")
+                            return True
+                        else:
+                            print(f"❌ Mempool data dict doesn't contain 'transactions' key: {data.keys()}")
+                            return False
+                    else:
+                        print(f"❌ Mempool data is unexpected type: {type(data)}")
+                        return False
             else:
-                print(f"❌ Failed to download {resource_type}: HTTP {response.status_code}")
+                print(f"❌ No data received from {url}")
+                return False
                 
         except Exception as e:
             print(f"❌ Error downloading {resource_type}: {e}")
-        
-        return False
+            import traceback
+            traceback.print_exc()
+            return False
 
     def sync_all(self):
         """One command to sync everything"""
         print("🔄 Starting complete network synchronization...")
         
-        # Sync blockchain
-        if not self.download_from_web("blockchain"):
-            print("🌐 Web blockchain unavailable, trying peers...")
-            self.download_blockchain()
+        # Try web sync first
+        print("🌐 Trying to sync from linglin.art...")
+        web_success = self.download_from_web("blockchain")
+        
+        if not web_success:
+            print("❌ Could not sync blockchain from web")
+        else:
+            print("✅ Successfully synced from web")
         
         # Sync mempool
-        if not self.download_from_web("mempool"):
-            print("🌐 Web mempool unavailable, trying peers...")
-            self.download_mempool()
+        print("🌐 Trying to sync mempool from linglin.art...")
+        web_mempool_success = self.download_from_web("mempool")
+        
+        if not web_mempool_success:
+            print("❌ Could not sync mempool from web")
+        else:
+            print("✅ Successfully synced mempool from web")
         
         # Discover peers
         self.discover_peers()
@@ -517,7 +679,6 @@ class Blockchain:
 
     def download_blockchain(self, peer_address: str = None):
         """Download blockchain from a peer"""
-        # If no specific peer provided, try all known peers
         peers_to_try = [peer_address] if peer_address else list(self.peers)
         
         print(f"🔍 Current peers: {list(self.peers)}")
@@ -529,16 +690,8 @@ class Blockchain:
         
         for peer in peers_to_try:
             try:
-                # Check if we're trying to connect to ourselves
-                if hasattr(self, 'node_host') and hasattr(self, 'node_port'):
-                    my_address = f"{self.node_host}:{self.node_port}"
-                    if peer == my_address:
-                        print(f"⏭️  Skipping self: {peer}")
-                        continue
-                
                 print(f"📥 Attempting to download blockchain from {peer}...")
                 
-                # First test if the peer is reachable with a ping
                 ping_response = self.send_to_peer(peer, {"action": "ping"}, timeout=5)
                 if not ping_response or ping_response.get("status") != "success":
                     print(f"❌ Peer {peer} is not responding to ping")
@@ -546,7 +699,6 @@ class Blockchain:
                     
                 print(f"✅ Peer {peer} is reachable, requesting blockchain...")
                 
-                # Request the blockchain with a longer timeout
                 response = self.send_to_peer(peer, {"action": "get_blockchain"}, timeout=30)
                 
                 if not response:
@@ -562,10 +714,8 @@ class Blockchain:
                     if len(chain_data) > len(self.chain):
                         print(f"✅ Downloaded blockchain with {total_blocks} blocks from {peer}")
                         
-                        # Replace our chain with the downloaded one
                         new_chain = []
                         for block_data in chain_data:
-                            # Recreate the block exactly as it was mined
                             block = Block(
                                 block_data["index"],
                                 block_data["previous_hash"],
@@ -573,12 +723,10 @@ class Blockchain:
                                 block_data["transactions"],
                                 block_data.get("nonce", 0)
                             )
-                            # Preserve the original hash and mining time
                             block.hash = block_data["hash"]
                             block.mining_time = block_data.get("mining_time", 0)
                             new_chain.append(block)
                         
-                        # Validate the new chain before replacing
                         if self.validate_chain(new_chain):
                             self.chain = new_chain
                             self.save_chain()
@@ -598,58 +746,103 @@ class Blockchain:
                 print(f"❌ Connection refused by {peer}")
             except Exception as e:
                 print(f"❌ Error downloading blockchain from {peer}: {e}")
-                import traceback
-                traceback.print_exc()
         
         print("❌ Failed to download blockchain from all peers")
         return False
 
     def save_mempool(self):
-        """Save pending transactions to mempool.json"""
+        """Save pending transactions to storage"""
         try:
-            with open("mempool.json", "w") as f:
-                json.dump(self.pending_transactions, f, indent=2)
-            print("💾 Mempool saved to mempool.json")
+            DataManager.save_json("mempool.json", self.pending_transactions)
         except Exception as e:
             print(f"❌ Error saving mempool: {e}")
 
     def download_mempool(self, peer_address: str = None):
-        """Download mempool transactions from a peer"""
-        # If no specific peer provided, try all known peers
+        """Download mempool transactions from a peer, with web fallback"""
         peers_to_try = [peer_address] if peer_address else list(self.peers)
-        
-        if not peers_to_try:
-            print("❌ No peers available to download mempool from")
-            return False
-        
         new_transactions = 0
         
-        for peer in peers_to_try:
-            try:
-                print(f"📥 Downloading mempool from {peer}...")
-                response = self.send_to_peer(peer, {"action": "get_pending_transactions"})
-                
-                if response and response.get("status") == "success":
-                    transactions = response.get("transactions", [])
+        # First try peers
+        if peers_to_try:
+            print(f"🔍 Trying {len(peers_to_try)} peer(s) for mempool download...")
+            
+            for peer in peers_to_try:
+                try:
+                    print(f"📥 Downloading mempool from {peer}...")
+                    response = self.send_to_peer(peer, {"action": "get_pending_transactions"})
+                    
+                    if response and response.get("status") == "success":
+                        transactions = response.get("transactions", [])
+                        
+                        for tx in transactions:
+                            if not any(t.get("signature") == tx.get("signature") for t in self.pending_transactions):
+                                self.pending_transactions.append(tx)
+                                new_transactions += 1
+                        
+                        self.save_mempool()
+                        
+                        print(f"✅ Added {new_transactions} new transactions from {peer}'s mempool")
+                        return True
+                    else:
+                        print(f"❌ Failed to download mempool from {peer}")
+                except Exception as e:
+                    print(f"❌ Error downloading mempool from {peer}: {e}")
+        
+        # If no peers available or all peers failed, try web fallback
+        print("🌐 No peers available or all failed, trying web fallback...")
+        return self.download_mempool_from_web()
+
+    def download_mempool_from_web(self):
+        """Download mempool from https://bank.linglin.art/mempool"""
+        web_url = "https://bank.linglin.art/mempool"
+        new_transactions = 0
+        
+        try:
+            print(f"📥 Downloading mempool from {web_url}...")
+            
+            # Use the existing SimpleHTTPClient
+            response_text = SimpleHTTPClient.get(web_url)
+            
+            if response_text:
+                try:
+                    data = json.loads(response_text)
+                    
+                    # Handle different response formats
+                    if isinstance(data, list):
+                        transactions = data
+                    elif isinstance(data, dict) and 'transactions' in data:
+                        transactions = data['transactions']
+                    else:
+                        print(f"❌ Unexpected mempool format from web: {type(data)}")
+                        return False
                     
                     for tx in transactions:
-                        # Add transaction if not already in our mempool
+                        # Check if transaction already exists
                         if not any(t.get("signature") == tx.get("signature") for t in self.pending_transactions):
-                            self.pending_transactions.append(tx)
-                            new_transactions += 1
+                            # Also check if it's already mined in blockchain
+                            if not self.is_transaction_mined(tx):
+                                self.pending_transactions.append(tx)
+                                new_transactions += 1
                     
-                    # Save mempool to file after adding new transactions
                     self.save_mempool()
                     
-                    print(f"✅ Added {new_transactions} new transactions from {peer}'s mempool")
-                    return True
-                else:
-                    print(f"❌ Failed to download mempool from {peer}")
-            except Exception as e:
-                print(f"❌ Error downloading mempool from {peer}: {e}")
-        
-        print(f"ℹ️  No new transactions found from any peer")
-        return new_transactions > 0
+                    if new_transactions > 0:
+                        print(f"✅ Added {new_transactions} new transactions from web mempool")
+                    else:
+                        print("ℹ️  No new transactions found in web mempool")
+                    
+                    return new_transactions > 0
+                    
+                except json.JSONDecodeError as e:
+                    print(f"❌ JSON decode error from web mempool: {e}")
+                    return False
+            else:
+                print("❌ No response from web mempool")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error downloading mempool from web: {e}")
+            return False
 
     def validate_chain(self, chain: List[Block]) -> bool:
         """Validate a blockchain"""
@@ -657,12 +850,10 @@ class Blockchain:
             current_block = chain[i]
             previous_block = chain[i-1]
             
-            # Check if current block hash is correct
             if current_block.hash != current_block.calculate_hash():
                 print(f"❌ Block {i} hash is invalid!")
                 return False
             
-            # Check if previous hash matches
             if current_block.previous_hash != previous_block.hash:
                 print(f"❌ Block {i} previous hash doesn't match!")
                 return False
@@ -671,16 +862,15 @@ class Blockchain:
 
     def generate_serial_number(self):
         """Generate a unique serial number in SN-###-###-#### format"""
-        # Generate a unique serial number
-        serial_id = str(uuid.uuid4().int)[:10]  # Get first 10 digits of UUID
+        serial_id = str(uuid.uuid4().int)[:10]
         formatted_serial = f"SN-{serial_id[:3]}-{serial_id[3:6]}-{serial_id[6:10]}"
         return formatted_serial
 
-    def clear_mempool(self, mempool_file="mempool.json"):
-        """Clear the mempool file"""
+    def clear_mempool(self):
+        """Clear the mempool"""
         try:
-            open(mempool_file, 'w').close()
             self.pending_transactions = []
+            DataManager.save_json("mempool.json", [])
             print("✅ Mempool cleared")
             return True
         except Exception as e:
@@ -688,7 +878,6 @@ class Blockchain:
             return False
 
     def create_genesis_block(self) -> Block:
-        # Generate a serial number for the genesis block
         genesis_serial = self.generate_serial_number()
         return Block(0, "0", time.time(), [{
             "type": "genesis", 
@@ -711,7 +900,6 @@ class Blockchain:
         self.total_mining_time += new_block.mining_time
         self.save_chain()
         
-        # Broadcast the new block to peers
         block_data = {
             "action": "new_block",
             "block": {
@@ -726,8 +914,60 @@ class Blockchain:
         }
         self.broadcast(block_data)
 
+    def check_user_limits(self, user_id, denomination):
+        """Check if user has reached their limit for a denomination"""
+        if user_id not in self.user_limits:
+            self.user_limits[user_id] = {}
+        
+        user_denom_count = self.user_limits[user_id].get(denomination, 0)
+        max_allowed = self.denomination_limits.get(denomination, 1)
+        
+        return user_denom_count < max_allowed
+
+    def increment_user_limit(self, user_id, denomination):
+        """Increment user's count for a denomination"""
+        if user_id not in self.user_limits:
+            self.user_limits[user_id] = {}
+        
+        self.user_limits[user_id][denomination] = self.user_limits[user_id].get(denomination, 0) + 1
+
     def add_transaction(self, transaction: Dict):
+        """Add transaction to mempool with anti-spam checks"""
+        
+        # Extract user_id and denomination
+        user_id = transaction.get("user_id", "unknown")
+        denomination = transaction.get("denomination", "1")
+        
+        # Anti-spam: Check user limits
+        if not self.check_user_limits(user_id, denomination):
+            print(f"❌ User {user_id} exceeded limit for denomination {denomination}")
+            return False
+        
+        # Check if this transaction has already been mined in the blockchain
+        if self.is_transaction_mined(transaction):
+            print(f"⏭️  Transaction already mined, skipping: {transaction.get('signature', 'unknown')[:16]}...")
+            return False
+        
+        # Check if transaction already exists in mempool
+        tx_signature = transaction.get("signature")
+        if any(t.get("signature") == tx_signature for t in self.pending_transactions):
+            print(f"⏭️  Transaction already in mempool: {tx_signature[:16]}...")
+            return False
+        
+        # Add mining requirements based on denomination
+        requirements = self.difficulty_requirements.get(denomination, {"difficulty": 0, "min_time": 0.1, "max_attempts": 10})
+        transaction["mining_requirements"] = {
+            "required_difficulty": requirements["difficulty"],
+            "minimum_time_seconds": requirements["min_time"],
+            "max_mining_attempts": requirements["max_attempts"],
+            "mining_attempts": 0
+        }
+        
         self.pending_transactions.append(transaction)
+        self.save_mempool()
+        
+        # Increment user limit
+        self.increment_user_limit(user_id, denomination)
         
         # Broadcast the new transaction to peers
         tx_data = {
@@ -735,25 +975,45 @@ class Blockchain:
             "transaction": transaction
         }
         self.broadcast(tx_data)
+        
+        print(f"✅ Transaction added to mempool: {tx_signature[:16]}...")
+        print(f"   💰 Denomination: ${denomination}")
+        print(f"   ⛏️  Required Difficulty: {requirements['difficulty']}")
+        print(f"   ⏱️  Minimum Time: {requirements['min_time']}s")
+        return True
+
+    def is_transaction_mined(self, transaction: Dict) -> bool:
+        """Check if a transaction has already been mined in the blockchain"""
+        tx_signature = transaction.get("signature")
+        if not tx_signature:
+            return False
+        
+        # Check all blocks in the blockchain
+        for block in self.chain:
+            for tx in block.transactions:
+                if tx.get("signature") == tx_signature:
+                    return True
+                # Also check by content for GTX_Genesis transactions
+                if (tx.get("type") == "GTX_Genesis" and 
+                    transaction.get("type") == "GTX_Genesis" and
+                    tx.get("serial_number") == transaction.get("serial_number")):
+                    return True
+        return False
 
     def determine_bill_denomination(self, block_hash):
         """Determine which bill denomination was found based on block hash and difficulty"""
         current_difficulty = self.difficulty
         available_bills = self.difficulty_denominations.get(current_difficulty, {"1": 1})
         
-        # Use block hash to create deterministic randomness
-        hash_int = int(block_hash[:8], 16)  # Use first 8 chars of hash
+        hash_int = int(block_hash[:8], 16)
         
-        # Create weighted selection based on rarity
         weighted_choices = []
         for bill, multiplier in available_bills.items():
             weight = self.bill_rarity.get(bill, 1)
             weighted_choices.extend([bill] * weight)
         
-        # Use hash for deterministic selection
         selected_bill = weighted_choices[hash_int % len(weighted_choices)]
         multiplier = available_bills[selected_bill]
-        
         actual_reward = self.base_mining_reward * multiplier
         
         return selected_bill, multiplier, actual_reward
@@ -765,7 +1025,22 @@ class Blockchain:
         
         print(f"📦 Preparing block with {len(self.pending_transactions)} transactions...")
         
-        # Create mining progress display
+        # Filter transactions by difficulty requirements and attempt limits
+        mineable_transactions = []
+        for tx in self.pending_transactions:
+            requirements = tx.get("mining_requirements", {})
+            attempts = requirements.get("mining_attempts", 0)
+            max_attempts = requirements.get("max_mining_attempts", self.max_mining_attempts)
+            
+            if attempts < max_attempts:
+                mineable_transactions.append(tx)
+            else:
+                print(f"⏭️  Skipping transaction {tx.get('signature', 'unknown')[:16]}... - exceeded max attempts")
+        
+        if not mineable_transactions:
+            print("❌ No mineable transactions (all exceeded attempt limits)")
+            return False
+        
         def mining_progress(stats):
             hashes_per_sec = stats['hash_rate']
             if hashes_per_sec > 1_000_000:
@@ -775,16 +1050,15 @@ class Blockchain:
             else:
                 hash_rate_str = f"{hashes_per_sec:.2f} H/s"
             
-            # Update mining progress for external access
             self.current_mining_hashes = stats['hashes']
             self.current_hash_rate = stats['hash_rate']
             self.current_hash = stats['current_hash']
             
             print(f"\r⛏️  Mining: {stats['hashes']:,.0f} hashes | {hash_rate_str} | Current: {stats['current_hash'][:self.difficulty+2]}...", 
-                  end="", flush=True)
+                end="", flush=True)
 
-        # Create and mine the block
-        block = Block(len(self.chain), self.get_latest_block().hash, time.time(), self.pending_transactions.copy())
+        # Create the block with mineable transactions
+        block = Block(len(self.chain), self.get_latest_block().hash, time.time(), mineable_transactions.copy())
         
         self.is_mining = True
         print("\n" + "="*60)
@@ -792,6 +1066,7 @@ class Blockchain:
         print("="*60)
         print(f"⚙️  Difficulty Level: {self.difficulty}")
         print(f"💵 Available Bills: {', '.join(self.difficulty_denominations[self.difficulty].keys())}")
+        print(f"📊 Mineable Transactions: {len(mineable_transactions)}/{len(self.pending_transactions)}")
         print("="*60)
         
         start_time = time.time()
@@ -800,26 +1075,16 @@ class Blockchain:
         
         self.is_mining = False
         
-        # Reset mining progress
         self.current_mining_hashes = 0
         self.current_hash_rate = 0
         self.current_hash = ""
         
-        # Determine bill denomination found
+        # Determine bill denomination and create reward transaction
         bill_denomination, multiplier, actual_reward = self.determine_bill_denomination(block.hash)
-        
-        # Generate a unique serial number for this bill
         serial_number = self.generate_serial_number()
         verification_url = f"{self.verification_base_url}{serial_number}"
         
-        print("\n\n" + "="*60)
-        print("✅ BLOCK MINED SUCCESSFULLY!")
-        print("="*60)
-        
-        # Add to chain
-        self.add_block(block)
-        
-        # Add mining reward with bill information
+        # Create reward transaction
         reward_tx = {
             "type": "reward",
             "to": mining_reward_address,
@@ -828,16 +1093,38 @@ class Blockchain:
             "denomination": bill_denomination,
             "multiplier": multiplier,
             "timestamp": time.time(),
-            "block_height": len(self.chain) - 1,
+            "block_height": len(self.chain),  # This will be the new block's height
             "signature": f"reward_{len(self.chain)}_{hashlib.sha256(mining_reward_address.encode()).hexdigest()[:16]}",
             "block_hash": block.hash,
             "difficulty": self.difficulty,
             "serial_number": serial_number,
             "verification_url": verification_url
         }
-        self.pending_transactions = [reward_tx]
         
-        # Display mining statistics
+        # ✅ CRITICAL FIX: Add the reward transaction to the block's transactions
+        block.transactions.append(reward_tx)
+        
+        print("\n\n" + "="*60)
+        print("✅ BLOCK MINED SUCCESSFULLY!")
+        print("="*60)
+        
+        # Add the block to the blockchain (this includes the reward transaction)
+        self.add_block(block)
+        
+        # Clear only the mined transactions from mempool
+        mined_signatures = [tx.get("signature") for tx in mineable_transactions]
+        self.pending_transactions = [tx for tx in self.pending_transactions if tx.get("signature") not in mined_signatures]
+        self.save_mempool()
+        
+        # ✅ Broadcast mempool clearance to all peers (including wallet)
+        clearance_data = {
+            "action": "clear_mempool",
+            "block_height": len(self.chain) - 1,
+            "block_hash": block.hash,
+            "cleared_transactions": len(mineable_transactions)
+        }
+        self.broadcast(clearance_data)
+        
         mining_time = end_time - start_time
         print(f"📊 Mining Statistics:")
         print(f"   Block Height: {block.index}")
@@ -846,7 +1133,7 @@ class Blockchain:
         print(f"   Mining Time: {mining_time:.2f} seconds")
         print(f"   Hash Rate: {block.hash_rate:,.2f} H/s")
         print(f"   Difficulty: {self.difficulty}")
-        print(f"   Transactions: {len(block.transactions)}")
+        print(f"   Transactions: {len(block.transactions)}")  # This now includes the reward
         print(f"   💰 Bill Found: ${bill_denomination} Bill")
         print(f"   📈 Multiplier: x{multiplier}")
         print(f"   ⛏️  Base Reward: {self.base_mining_reward} LC")
@@ -865,7 +1152,6 @@ class Blockchain:
                 'total_rewards': 0
             }
         
-        # Calculate total rewards from blockchain
         total_rewards = 0
         for block in self.chain:
             for tx in block.transactions:
@@ -882,47 +1168,32 @@ class Blockchain:
     def is_chain_valid(self) -> bool:
         return self.validate_chain(self.chain)
 
-    def save_chain(self):
-        chain_data = []
-        for block in self.chain:
-            chain_data.append({
-                "index": block.index,
-                "previous_hash": block.previous_hash,
-                "timestamp": block.timestamp,
-                "transactions": block.transactions,
-                "nonce": block.nonce,
-                "hash": block.hash,
-                "mining_time": block.mining_time
-            })
-        with open(self.chain_file, 'w') as f:
-            json.dump(chain_data, f, indent=2)
-
     def load_chain(self):
-        if os.path.exists(self.chain_file):
-            try:
-                with open(self.chain_file, 'r') as f:
-                    chain_data = json.load(f)
-                    chain = []
-                    for block_data in chain_data:
-                        block = Block(
-                            block_data["index"],
-                            block_data["previous_hash"],
-                            block_data["timestamp"],
-                            block_data["transactions"],
-                            block_data.get("nonce", 0)
-                        )
-                        block.mining_time = block_data.get("mining_time", 0)
-                        chain.append(block)
-                    return chain
-            except:
-                print("⚠️  Corrupted blockchain file, creating new chain...")
+        """Load blockchain from storage"""
+        try:
+            chain_data = DataManager.load_json(self.chain_file)
+            if chain_data:
+                chain = []
+                for block_data in chain_data:
+                    block = Block(
+                        block_data["index"],
+                        block_data["previous_hash"],
+                        block_data["timestamp"],
+                        block_data["transactions"],
+                        block_data.get("nonce", 0)
+                    )
+                    block.mining_time = block_data.get("mining_time", 0)
+                    chain.append(block)
+                print(f"✅ Loaded blockchain with {len(chain)} blocks")
+                return chain
+        except Exception as e:
+            print(f"⚠️  Could not load blockchain: {e}")
         return None
-
 
     def handle_wallet_connection(self, data):
         """Handle incoming wallet requests"""
         action = data.get("action")
-        MAX_RESPONSE_SIZE = 10 * 1024 * 1024  # 10MB limit
+        MAX_RESPONSE_SIZE = 10 * 1024 * 1024
 
         try:
             if action == "ping":
@@ -953,11 +1224,12 @@ class Blockchain:
             
             elif action == "add_transaction":
                 transaction = data.get("transaction")
-                self.add_transaction(transaction)
-                return {"status": "success", "message": "Transaction added to mempool"}
+                if self.add_transaction(transaction):
+                    return {"status": "success", "message": "Transaction added to mempool"}
+                else:
+                    return {"status": "error", "message": "Failed to add transaction (spam protection or duplicate)"}
             
             elif action == "get_blockchain_info":
-                # Return only summary info, not the full blockchain
                 return {
                     "status": "success",
                     "blockchain_height": len(self.chain),
@@ -966,18 +1238,17 @@ class Blockchain:
                     "difficulty": self.difficulty,
                     "base_reward": self.base_mining_reward,
                     "node_address": self.node_address,
-                    "peers_count": len(self.peers)
+                    "peers_count": len(self.peers),
+                    "user_limits": self.denomination_limits
                 }
             elif action == "start_mining":
-                # Get miner address from request or use default
                 miner_address = data.get("miner_address", "miner_default_address")
                 
-                # Start mining in a separate thread
                 def mining_thread():
                     try:
                         success = self.mine_pending_transactions(miner_address)
                         if success:
-                            self.clear_mempool()
+                            print("✅ Mining completed successfully")
                     except Exception as e:
                         print(f"Mining error: {e}")
                 
@@ -989,27 +1260,24 @@ class Blockchain:
             elif action == "get_pending_transactions":
                 return {"status": "success", "transactions": self.pending_transactions}
             elif action == "get_blockchain":
-                estimated_size = len(json.dumps([block.__dict__ for block in self.chain]))
-                if estimated_size > MAX_RESPONSE_SIZE:
-                    return {
-                        "status": "error", 
-                        "message": f"Blockchain too large ({estimated_size/1024/1024:.1f}MB). Use get_blockchain_info instead."
-                    }
-                # Return only the last 10 blocks to avoid huge responses
-                max_blocks = 10
-                chain_to_send = self.chain[-max_blocks:] if len(self.chain) > max_blocks else self.chain
-                
+                # For wallet synchronization, return ALL transactions without limits
                 chain_data = []
-                for block in chain_to_send:
+                for block in self.chain:
                     chain_data.append({
                         "index": block.index,
                         "previous_hash": block.previous_hash,
                         "timestamp": block.timestamp,
-                        "transactions": block.transactions[:5],  # Limit transactions too
+                        "transactions": block.transactions,  # ✅ ALL transactions
                         "nonce": block.nonce,
                         "hash": block.hash,
                         "mining_time": block.mining_time
                     })
+                
+                # Check size and warn if large, but still send it
+                estimated_size = len(json.dumps(chain_data))
+                if estimated_size > MAX_RESPONSE_SIZE:
+                    print(f"⚠️  Large blockchain response: {estimated_size/1024/1024:.1f}MB")
+                
                 return {"status": "success", "blockchain": chain_data, "total_blocks": len(self.chain)}
             
             elif action == "get_difficulty_info":
@@ -1017,10 +1285,11 @@ class Blockchain:
                     "status": "success",
                     "difficulty": self.difficulty,
                     "available_bills": self.difficulty_denominations.get(self.difficulty, {}),
-                    "base_reward": self.base_mining_reward
+                    "base_reward": self.base_mining_reward,
+                    "difficulty_requirements": self.difficulty_requirements,
+                    "denomination_limits": self.denomination_limits
                 }
             
-            # P2P Network Actions
             elif action == "get_peers":
                 return {"status": "success", "peers": list(self.peers)}
             
@@ -1030,12 +1299,10 @@ class Blockchain:
                     return {"status": "success", "message": f"Peer {peer_address} added"}
                 else:
                     return {"status": "error", "message": "Failed to add peer"}
-            elif action == "test_peers":
-                blockchain.test_peer_connectivity()
+            
             elif action == "new_block":
                 block_data = data.get("block")
                 if block_data:
-                    # Check if we already have this block
                     if block_data["index"] > len(self.chain) - 1:
                         print(f"📥 Received new block #{block_data['index']} from peer")
                         block = Block(
@@ -1048,7 +1315,6 @@ class Blockchain:
                         block.mining_time = block_data.get("mining_time", 0)
                         block.hash = block_data.get("hash", block.calculate_hash())
                         
-                        # Validate the block
                         if block.hash == block.calculate_hash() and block.previous_hash == self.get_latest_block().hash:
                             self.chain.append(block)
                             self.save_chain()
@@ -1062,9 +1328,9 @@ class Blockchain:
             elif action == "new_transaction":
                 transaction = data.get("transaction")
                 if transaction:
-                    # Add transaction if not already in mempool
                     if not any(t.get("signature") == transaction.get("signature") for t in self.pending_transactions):
                         self.pending_transactions.append(transaction)
+                        self.save_mempool()
                         print(f"📥 Received new transaction from peer")
                         return {"status": "success", "message": "Transaction added to mempool"}
                     else:
@@ -1086,7 +1352,6 @@ class Blockchain:
                 if tx.get("from") == address:
                     balance -= tx.get("amount", 0)
         
-        # Also check pending transactions
         for tx in self.pending_transactions:
             if tx.get("type") != "reward":
                 if tx.get("to") == address:
@@ -1114,7 +1379,6 @@ class Blockchain:
                     client_socket, addr = server_socket.accept()
                     client_socket.settimeout(5.0)
                     
-                    # Read the message length first (4 bytes)
                     try:
                         length_bytes = client_socket.recv(4)
                         if not length_bytes:
@@ -1123,7 +1387,6 @@ class Blockchain:
                         
                         message_length = int.from_bytes(length_bytes, 'big')
                         
-                        # Read the actual message
                         request_data = b""
                         while len(request_data) < message_length:
                             chunk = client_socket.recv(min(4096, message_length - len(request_data)))
@@ -1136,7 +1399,6 @@ class Blockchain:
                                 message = json.loads(request_data.decode())
                                 response = self.handle_wallet_connection(message)
                                 
-                                # Send response with length prefix
                                 response_json = json.dumps(response)
                                 response_length = len(response_json.encode())
                                 client_socket.sendall(response_length.to_bytes(4, 'big'))
@@ -1169,9 +1431,8 @@ class Blockchain:
 
     def start_wallet_server(self):
         """Start the wallet server to handle wallet connections"""
-        # Start the wallet server thread
         self.wallet_thread = threading.Thread(target=self.wallet_server_thread)
-        self.wallet_thread.daemon = False  # Make non-daemon for proper cleanup
+        self.wallet_thread.daemon = False
         self.wallet_thread.start()
         print("✅ Node wallet server thread started")
 
@@ -1183,25 +1444,10 @@ class Blockchain:
             self.wallet_thread.join(timeout=3.0)
         print("✅ Wallet server stopped")
 
-import os
-import json
-from typing import List, Dict
-
-def load_mempool(mempool_file: str = "mempool.json") -> List[Dict]:
-    transactions = []
-    try:
-        if os.path.exists(mempool_file):
-            with open(mempool_file, 'r', encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        transaction = json.loads(line)
-                        transactions.append(transaction)
-            print(f"✅ Loaded {len(transactions)} transactions from mempool")
-        else:
-            print("⚠️  Mempool file not found")
-    except Exception as e:
-        print(f"❌ Error loading mempool: {e}")
+def load_mempool() -> List[Dict]:
+    """Load mempool from storage"""
+    transactions = DataManager.load_json("mempool.json", [])
+    print(f"✅ Loaded {len(transactions)} transactions from mempool")
     return transactions
 
 def show_mining_animation():
@@ -1230,6 +1476,7 @@ def show_help():
     print("  discover  - Discover new peers from known peers")
     print("  download blockchain - Download blockchain from peers")
     print("  download mempool - Download mempool from peers")
+    print("  limits    - Show denomination limits")
     print("  help      - Show this help")
     print("  exit      - Exit the node")
 
@@ -1238,7 +1485,7 @@ def get_miner_address_from_wallet():
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(2)
-            s.connect(('127.0.0.1', 9334))  # Wallet RPC port
+            s.connect(('127.0.0.1', 9334))
             s.sendall(json.dumps({
                 "action": "get_mining_address"
             }).encode())
@@ -1252,43 +1499,22 @@ def get_miner_address_from_wallet():
         print(f"⚠️  Could not connect to wallet: {e}")
         print("💡 Make sure the wallet is running with: python wallet.py server")
     
-    # Fallback: try to read from config file
     try:
-        if os.path.exists("wallet_config.json"):
-            with open("wallet_config.json", "r") as f:
-                config = json.load(f)
-                mining_address = config.get("mining", {}).get("mining_reward_address", "")
-                if mining_address:
-                    print(f"✅ Using mining address from config: {mining_address}")
-                    return mining_address
+        config_data = DataManager.load_json("wallet_config.json", {})
+        mining_address = config_data.get("mining", {}).get("mining_reward_address", "")
+        if mining_address:
+            print(f"✅ Using mining address from config: {mining_address}")
+            return mining_address
     except Exception as e:
         print(f"⚠️  Could not read config: {e}")
     
-    # Final fallback: ask user
     return input("Enter miner address for rewards: ") or "miner_default_address"
-
-# Global blockchain instance with node info
-blockchain = Blockchain()
-blockchain.node_host = "127.0.0.1"  # Or your actual host
-blockchain.node_port = 9335
-
-def cleanup():
-    """Cleanup function for graceful shutdown"""
-    print("\n💾 Performing cleanup...")
-    blockchain.stop_wallet_server()
-    blockchain.save_chain()
-    blockchain.save_known_peers()
-    print("✅ Cleanup completed")
-
-# Register cleanup function
-atexit.register(cleanup)
 
 def list_recent_bills():
     """List recent bills mined with their verification links"""
     print("\n💰 RECENTLY MINED BILLS:")
     print("="*80)
     
-    # Get the last 10 blocks
     recent_blocks = blockchain.chain[-10:] if len(blockchain.chain) > 10 else blockchain.chain
     
     bills_found = []
@@ -1313,19 +1539,35 @@ def list_recent_bills():
         print(f"    ⛏️  Miner: {bill['miner']}")
         print()
 
+# Global blockchain instance
+blockchain = Blockchain()
+blockchain.node_host = "127.0.0.1"
+blockchain.node_port = 9335
+
+def cleanup():
+    """Cleanup function for graceful shutdown"""
+    print("\n💾 Performing cleanup...")
+    blockchain.stop_wallet_server()
+    blockchain.save_chain()
+    blockchain.save_known_peers()
+    print("✅ Cleanup completed")
+
+# Register cleanup function
+atexit.register(cleanup)
+
 def main():
+    ssl_context = configure_ssl_for_frozen_app()
+    data_dir = DataManager.get_data_dir()
+    print(f"📁 Data storage location: {data_dir}")
     
-    # Start the wallet server
     blockchain.start_wallet_server()
-    
-    # Start peer discovery
     blockchain.start_peer_discovery()
     
     print("""
     ╔══════════════════════════════════════════════════════╗
     ║                 LUNA BLOCKCHAIN NODE                 ║
-    ║           Denomination-Based Mining Edition          ║
-    ║                 with P2P Networking                  ║
+    ║           Multi-Difficulty Mining Edition            ║
+    ║              with Anti-Spam Protection               ║
     ╚══════════════════════════════════════════════════════╝
     """)
     
@@ -1335,6 +1577,8 @@ def main():
     print(f"💰 Base Mining Reward: {blockchain.base_mining_reward} LC")
     print(f"🌐 Node Address: {blockchain.node_address}")
     print(f"🔗 Known Peers: {len(blockchain.peers)}")
+    print(f"💾 Data Location: {data_dir}")
+    print("🛡️  Anti-spam protection: ENABLED")
     print("Type 'help' for commands\n")
     
     while True:
@@ -1342,25 +1586,25 @@ def main():
             command = input("\n⛓️  node> ").strip().lower()
             
             if command == "mine":
-                # Start mining animation in background
                 anim_thread = threading.Thread(target=show_mining_animation, daemon=True)
                 anim_thread.start()
                 
-                # Get miner address from wallet
                 miner_address = get_miner_address_from_wallet()
                 
-                if miner_address:  # Check if we got a valid address
+                if miner_address:
                     success = blockchain.mine_pending_transactions(miner_address)
                     if success:
-                        blockchain.clear_mempool()
+                        print("✅ Mining completed successfully")
                 else:
                     print("❌ Could not get valid miner address")
                     
             elif command == "load":
                 txs = load_mempool()
+                loaded_count = 0
                 for tx in txs:
-                    blockchain.add_transaction(tx)
-                print(f"📥 Added {len(txs)} transactions to pending pool")
+                    if blockchain.add_transaction(tx):
+                        loaded_count += 1
+                print(f"📥 Added {loaded_count}/{len(txs)} transactions to pending pool")
                 
             elif command == "status":
                 latest = blockchain.get_latest_block()
@@ -1374,6 +1618,7 @@ def main():
                 print(f"   Avg Mining Time: {stats['avg_time']:.2f}s")
                 print(f"   Known Peers: {len(blockchain.peers)}")
                 print(f"   Node Address: {blockchain.node_address}")
+                print(f"   Data Location: {DataManager.get_data_dir()}")
                 
             elif command == "stats":
                 stats = blockchain.get_mining_stats()
@@ -1385,6 +1630,27 @@ def main():
                 print(f"   Current Difficulty: {blockchain.difficulty}")
                 print(f"   Base Reward: {blockchain.base_mining_reward} LC")
                 
+            elif command == "limits":
+                print("🛡️  Denomination Limits (per user):")
+                for denom, limit in blockchain.denomination_limits.items():
+                    print(f"   ${denom}: {limit} bills")
+                    
+            elif command == "check_rewards":
+                print("🔍 Checking for reward transactions in node's blockchain...")
+                total_rewards = 0
+                
+                for i, block in enumerate(blockchain.chain):
+                    reward_txs = [tx for tx in block.transactions if tx.get("type") == "reward"]
+                    if reward_txs:
+                        print(f"Block {i}: Found {len(reward_txs)} reward transactions")
+                        for tx in reward_txs:
+                            print(f"  💰 Reward: {tx.get('amount', 0)} LC → {tx.get('to', 'N/A')}")
+                            total_rewards += 1
+                    else:
+                        print(f"Block {i}: No reward transactions")
+                
+                print(f"📊 Total reward transactions found: {total_rewards}")
+                
             elif command.startswith("difficulty"):
                 parts = command.split()
                 if len(parts) == 2:
@@ -1393,7 +1659,6 @@ def main():
                         if 1 <= new_diff <= 8:
                             blockchain.difficulty = new_diff
                             print(f"✅ Difficulty set to {new_diff}")
-                            # Show available bills for this difficulty
                             bills = blockchain.difficulty_denominations.get(new_diff, {})
                             print(f"   Available Bills: {', '.join([f'${bill}' for bill in bills.keys()])}")
                         else:
@@ -1411,7 +1676,10 @@ def main():
                 for bill, multiplier in bills.items():
                     rarity = blockchain.bill_rarity.get(bill, 1)
                     reward = blockchain.base_mining_reward * multiplier
-                    print(f"   ${bill} Bill: x{multiplier} → {reward} LC (Rarity: {rarity}/100)")
+                    requirements = blockchain.difficulty_requirements.get(bill, {})
+                    print(f"   ${bill} Bill: x{multiplier} → {reward} LC")
+                    print(f"      Rarity: {rarity}/100 | Min Time: {requirements.get('min_time', 0)}s")
+                    print(f"      Max Attempts: {requirements.get('max_attempts', 10)}")
                     
             elif command == "validate":
                 print("🔍 Validating blockchain...")
@@ -1435,7 +1703,6 @@ def main():
                 parts = command.split()
                 if len(parts) == 2:
                     peer_address = parts[1]
-                    # Validate it's in IP:PORT format
                     if ":" in peer_address and peer_address.count(":") == 1:
                         if blockchain.add_peer(peer_address):
                             print(f"✅ Added peer: {peer_address}")
@@ -1468,6 +1735,8 @@ def main():
             elif command == "help":
                 show_help()
                 print("  bills_list - Show recently mined bills with verification links")
+                print("  limits     - Show denomination limits for spam protection")
+                print("  check_rewards - Check reward transactions in blockchain")
                 
             elif command in ["exit", "quit"]:
                 print("💾 Saving blockchain and exiting...")
@@ -1489,5 +1758,4 @@ if __name__ == "__main__":
         print(f"❌ Fatal error: {e}")
         cleanup()
     finally:
-        # Ensure cleanup runs
         cleanup()

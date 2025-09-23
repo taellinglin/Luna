@@ -1,0 +1,522 @@
+[
+  {
+    "back_serial": "SN-A0kP-98Zu-QML9",
+    "denomination": "100",
+    "front_serial": "SN-irj557oYZxKlpg-5u8",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "b8dd2a85a96531f73b4e2c423baef980d152995836eec459f56960eedcfa8932",
+    "mining_requirements": {
+      "denomination": "100",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 4e-06,
+      "required_difficulty": 2
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a3044415163445167414565325741436958464965664f6c4c74462f4b4e417476317638337a4c0a472f6d305945766a6b55704b7775536c55386c75443879714b44767349476f426656327a52496b6d50415569636574476b68727a7368504769513d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 2,
+    "serial_number": "SN-SN--irj-557o",
+    "signature": "3044022008c8a3924d61abe93ffd650296b26240e57f992f15d02aea676b45590606f20a0220715ef5f866e50b0f10415c0a03b117a68e5b55e5188d8da0f12735632055dbdb",
+    "timestamp": 1758592440242,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--irj-557o"
+  },
+  {
+    "back_serial": "SN-xgQh-mleY-9eiY",
+    "denomination": "1",
+    "front_serial": "SN-khjcfNI_yXCtwg-Anw",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "dee645db2e8cc0af3f0f726dc23907d1825b13d373f144d54ef72c295edf5cb9",
+    "mining_requirements": {
+      "denomination": "1",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 1e-06,
+      "required_difficulty": 0
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145674b79337854416b593576597031464e472f745152775771735841570a675944313750554b4a667570796b6c324a5a2b656c37325a4f6c7949687a716e4e79484a2b2f41443462476e444d7569316977785276314c5a673d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 0,
+    "serial_number": "SN-SN--khj-cfNI",
+    "signature": "30460221009022d7267f63eb03ca31bcd06efd92a0b02e808c72cbefbf78095dd68cd8f48b022100bade6d1335c5c14768676678996168ff4de39dcdf01964bda415c9990431289e",
+    "timestamp": 1758592451482,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--khj-cfNI"
+  },
+  {
+    "back_serial": "SN-Q3Mc-Z8Tu-3S1T",
+    "denomination": "1000",
+    "front_serial": "SN-wEh3JjG8d9dkJA-ZFo",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "446399cf32d7a1178ef1cf2bd157e5cdc280e45a06f2244c33842314354eb695",
+    "mining_requirements": {
+      "denomination": "1000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 8e-06,
+      "required_difficulty": 3
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741454f68577a4e56756c74444e38426b364e736c43585639514d325248780a5746515562627644524441417350686652307759777976653563545358426c6d4c724c426f5664485a327a307a4f44625a3773306b37464734773d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 3,
+    "serial_number": "SN-SN--wEh-3JjG",
+    "signature": "3045022100e6ea19a7c592dadb9669b88b2870329a617d2e1ab670e74a694df8a294e86c70022035894d0c5141016520fb2665f84e7b2c33666a772d16ba05387bb17baee0d58b",
+    "timestamp": 1758592457808,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--wEh-3JjG"
+  },
+  {
+    "back_serial": "SN-p5K3-AFcA-cgHM",
+    "denomination": "10",
+    "front_serial": "SN-Z7uXizC5vMZFIQ-an4",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "53a626fe6d4dc6c64fd5c4bc71d9f7707cf4984919d953256ca2115ba3dec8cc",
+    "mining_requirements": {
+      "denomination": "10",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 2e-06,
+      "required_difficulty": 1
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741453379546b39664670334f4c6374324171332b696d6e597a68526f41770a4b4b795662626949573470646830723374755774333431696a517154542b70417a3434624b50752f4f6c55594d327267726c74512f7544437a673d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 1,
+    "serial_number": "SN-SN--Z7u-XizC",
+    "signature": "3046022100f344736e0dbcdf797c637a0eb18d9a842bd619ee8572f72f9aa7713e789eca71022100d7820891716a42efba30a450ee261acf8afb0daf4d591bf03893b21b8f150b71",
+    "timestamp": 1758592458800,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--Z7u-XizC"
+  },
+  {
+    "back_serial": "SN-VSbO-aVk9-kpvu",
+    "denomination": "10",
+    "front_serial": "SN-JJzC27o8nlfAnQ-xcY",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "c2c2acbdb7918b208e130edc9056d263fbe165ec6cf0dd753447e7841ad69ac3",
+    "mining_requirements": {
+      "denomination": "10",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 2e-06,
+      "required_difficulty": 1
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a3044415163445167414546536b704966777a6d2b4472776b75736548526f4b526f4d386e572b0a554f454458764e723762517658667975612b344c59384b6f4f7378374f7133584f36544a4738456f4e6a4d49662f33744e31304e516152436e413d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 1,
+    "serial_number": "SN-SN--JJz-C27o",
+    "signature": "3045022026190910a8a93eab5a9dfa049dd2e2655def224794870a187c0b8dfce5da0e1f022100b254ee4b62b2f31642b0c86171f56e8f02db42c76b7ab89cbf1972c25d3c63a1",
+    "timestamp": 1758593227832,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--JJz-C27o"
+  },
+  {
+    "back_serial": "SN-FMCF-qK_k-Hx3O",
+    "denomination": "1",
+    "front_serial": "SN-xL1z57RVUoSDmA-LMI",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "732ef7ce6307ec71fb8513f84b045544a79782b7eaba6f5228ad2247c1b7bf5b",
+    "mining_requirements": {
+      "denomination": "1",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 1e-06,
+      "required_difficulty": 0
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145304c4853354b4a36582f6568676d50382b5a376b7453462b4b3575410a796c67476e613176522b73786d495237466c677a39646454752f61507679494e4b6c70396849792f4d596152305436624c6e444c7931643731673d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 0,
+    "serial_number": "SN-SN--xL1-z57R",
+    "signature": "3045022100d72284f060925d5dd84892464a74df7722c888d07d28526e4b554a1827683359022005d8cda418cbc2d19f68323fc1d64b5768d20c2e8e9bf839111e6628f32e29e0",
+    "timestamp": 1758593259428,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--xL1-z57R"
+  },
+  {
+    "back_serial": "SN-SFcd-FEl5-TJDV",
+    "denomination": "100",
+    "front_serial": "SN-GaiZ7lZN44R3kg-0Dk",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "39d7c267f11f1f9ca620bddb26a222d349124fced32f0f7a0de826a84eb41f4b",
+    "mining_requirements": {
+      "denomination": "100",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 4e-06,
+      "required_difficulty": 2
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a3044415163445167414550516a6b4d373930397344304e2f726c756364416950587a556d56450a327544764948626e55424455766c5a7366396a627431747a31613545494d6d6a394752452f53744b6f794d6c58686c7279614e696c73395766413d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 2,
+    "serial_number": "SN-SN--Gai-Z7lZ",
+    "signature": "3045022100f345b8a204e09396c87d9a16b65fc1d58208a5904560a59993edba77707f25ea022054a0e1a5818eadde9462b6e41546eb69c31d784ab9efc6a6367d96dd351de1a8",
+    "timestamp": 1758593259742,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--Gai-Z7lZ"
+  },
+  {
+    "back_serial": "SN-5mhP-sI7R-YWJK",
+    "denomination": "1000",
+    "front_serial": "SN-QfZAbsRqkD6WAg-adY",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "4f1565d7aab4345ffc8820df460de556dddbadb2d69663d032517ef7881b7755",
+    "mining_requirements": {
+      "denomination": "1000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 8e-06,
+      "required_difficulty": 3
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741454a423043496c6e796174747152777069786f714a524a6374704e71390a796a46752f6b63704269763073626a3452744f6c6944356e6b6568666f63525550714f554a4165614a307349627170714a5873616948653235413d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 3,
+    "serial_number": "SN-SN--QfZ-AbsR",
+    "signature": "30440220298fd89aacc7efafea0912925aff091954d7ebb80c1dd3d3137870c8c99be56902205b173a5895d6139e7764f517d88d7f5f8666b64be65c2b0cf0e8ee33c70fd62c",
+    "timestamp": 1758593261208,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--QfZ-AbsR"
+  },
+  {
+    "back_serial": "SN-cDBr-VSMA-0d45",
+    "denomination": "100",
+    "front_serial": "SN-SQBTAeDHTEEH_A-Uuo",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "42e7c4d458aab264aa08649c22c2448bb7ba3232e57b38a297d62ef955cb82c4",
+    "mining_requirements": {
+      "denomination": "100",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 4e-06,
+      "required_difficulty": 2
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145435267754f614c323046444e556f3730612b37785759766e2b3251680a79496c6353794e434e347a657665794b6e79384879736653774b39502f766b335179702f5a4d2b4a6b6748624f597a326459416d4851754a6b773d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 2,
+    "serial_number": "SN-SN--SQB-TAeD",
+    "signature": "3044022012f6f49d10fc86b84cc1121a6c94fcc5d996766280db96591f28f6ede027a587022057fcc4a518453251d60e01fe698372b48ddbe2e775cee39863c17acec1e45cb4",
+    "timestamp": 1758593770058,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--SQB-TAeD"
+  },
+  {
+    "back_serial": "SN-LYkw-XPXj-3mF6",
+    "denomination": "10",
+    "front_serial": "SN-KmNTJiBIp_OJBg-nDk",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "0122ec1f011845d85f4aced927717a4280bf4b39b3ebe855862a1ae218dfeb75",
+    "mining_requirements": {
+      "denomination": "10",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 2e-06,
+      "required_difficulty": 1
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741453777573674644f4f3257414f54373742524648336e6c7850687a49770a6e2f5438737752686174394d6d6e36594573536c344e3233565474554c643857644b6e496861484d444a437261427a6664554f415a41732f4f413d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 1,
+    "serial_number": "SN-SN--KmN-TJiB",
+    "signature": "3045022100ba326dc540e8b77dbd680a5f7c61eb9ac6db53caff08f62d25c3de46fb2bd1410220367b3c3be58bb01123b46f1942b5d9de08942bb92fbd963fba7ccbbf64c69466",
+    "timestamp": 1758593827446,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--KmN-TJiB"
+  },
+  {
+    "back_serial": "SN-aguT-cZwc-NVNJ",
+    "denomination": "1000",
+    "front_serial": "SN-PAxItZg-uSJVoQ-w7I",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "06bb09ff59252f93dee6f6667a01a0930828414a3e8f444dc90411c3729ce9a6",
+    "mining_requirements": {
+      "denomination": "1000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 8e-06,
+      "required_difficulty": 3
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741454a6f4f563063463071784e6d75674556534353554f74676852686e700a354e3743317a5764483055506242756b65686a38726c636b353964585a58773471576c4e4879707532494d59544447675472433848394b4e66673d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 3,
+    "serial_number": "SN-SN--PAx-ItZg",
+    "signature": "304402203c8ae4bffa0fbdd09f8f1610dfcd8ff7eaf8e4e734e473f87782fee44fd946e8022058c320740f7e886fecfe985986bd01e2d297a1ce350a64abef9d93e573d1931c",
+    "timestamp": 1758593851152,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--PAx-ItZg"
+  },
+  {
+    "back_serial": "SN-Ayyx-zLVW--4SN",
+    "denomination": "1",
+    "front_serial": "SN-lQEGyfTFhqWz9g-nYY",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "62e2ce839569e5b4807f4f4d027db0f2b5290e45351bad770154590a2a13d302",
+    "mining_requirements": {
+      "denomination": "1",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 1e-06,
+      "required_difficulty": 0
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145534c7a5a566c452b395155436c35366a36334a5a59694535385461520a6d49685962387a50353674797775465259563148674f486b2f685448394e4b32472f53367239793773715532444a757a566d685368542f3770513d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 0,
+    "serial_number": "SN-SN--lQE-GyfT",
+    "signature": "3045022100d1313fb5b65aa3216501908696bb8dc70fe3194560bff57c7af669ddc02ee0f0022016c1db6cd6be2f0e334326e3cab4cf240f2a8e50ba0a51cde17621e645d31862",
+    "timestamp": 1758593858970,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--lQE-GyfT"
+  },
+  {
+    "back_serial": "SN-N-jd-FMnn-WObu",
+    "denomination": "10000",
+    "front_serial": "SN-0K4L7hWfzXiQUA-MTw",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "9b5c49d1ce050b365e498984333e3365f14f3eca08e8e8f2ae9b71df43adf33b",
+    "mining_requirements": {
+      "denomination": "10000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 1.6e-05,
+      "required_difficulty": 4
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145756c33425530302f77454a4c654e57316b6d6b6e6a3956476c4e70670a564e6b3245647439534b5356382b784e644b6b7a4a754a574e39413878746e3979764e2b57637664776e535a4a616a7263785470624d595239673d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 4,
+    "serial_number": "SN-SN--0K4-L7hW",
+    "signature": "3045022100b75ad163516bb497e6e292fb64610e7c5bff7b5d3c46ae2f3e54236138476e3c0220133deba5d7fe279a321a13d92948285bb48bcf2d59f3760c0944193c61cf8a2f",
+    "timestamp": 1758594123044,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--0K4-L7hW"
+  },
+  {
+    "back_serial": "SN-V6Pb-p1zR-XXmc",
+    "denomination": "100000",
+    "front_serial": "SN-nbNi0K-BmhU-LQ-F24",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "9fed55f178c015b2419bfc2f1701bf5b0c1e95168062dc3e296a317d451c6cf6",
+    "mining_requirements": {
+      "denomination": "100000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 3.2e-05,
+      "required_difficulty": 5
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145554558764e6a3170417279467a6a6a434b6653314a4a7451652b57530a4b3537315135554d54767779365144444972384c4b65576e745838492b54544a677448546d4c32765866695568423134634c43535269626e72413d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 5,
+    "serial_number": "SN-SN--nbN-i0K-",
+    "signature": "304502210091168f5f432da92fb6f4d1cd54a6c507a4989763abb120faad9e611d041fe28d02200d3daa0a99e450cbee8c8c8fb85fddba1500551bc6289f796209b8cedf316c64",
+    "timestamp": 1758594168516,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--nbN-i0K-"
+  },
+  {
+    "back_serial": "SN-J59F-Iw66-qj5t",
+    "denomination": "1000000",
+    "front_serial": "SN-IzsdBYPZh9MJdQ-yKA",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "c4fa1a34f90160b4821a8c5f2c5a374880caba0ef4aa22d51ca7341e810205e3",
+    "mining_requirements": {
+      "denomination": "1000000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 6.4e-05,
+      "required_difficulty": 6
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741452b776b6f576d6a436f574a4b734a5650493151764f4a7a56324e6b620a62504a6b7750756547774d4a4a57454b64373677664450412b2b576f516b6c58744e3479677a4b6977302b735a334a55683130527254494f44773d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 6,
+    "serial_number": "SN-SN--Izs-dBYP",
+    "signature": "3046022100a9a3930b91bdf348c011660e53fa587fb1e18ce1df43162a9d2a8dfe86b51320022100be8e17e82df09b9dff0497c487b0a2f79255596f32dd8c2b3890bfc942fe5759",
+    "timestamp": 1758594173074,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--Izs-dBYP"
+  },
+  {
+    "back_serial": "SN-RbO6-mskZ-_H1Q",
+    "denomination": "10000000",
+    "front_serial": "SN-GIHc2cvg5S5BYA-OgE",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "e151d4527847265adb63b4b1e7c52d8addabdb308c1ef2ddbf5de2a13b5e1ab8",
+    "mining_requirements": {
+      "denomination": "10000000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 0.000128,
+      "required_difficulty": 7
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741454d574341674a6f496f5a567970496c38792f6f45796a30337a514d330a376861787337454678644c436833686e3963532b4a354333576676386978474150586e656f2f4b78626e494e44324b6773416b595237333472673d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 7,
+    "serial_number": "SN-SN--GIH-c2cv",
+    "signature": "3045022100e4280ffed312f54803545a323e60115dd76c31cd7681bb12d5b4d999e18e156d02207b52530b776517e2b0351c4478f779ddeb93438729ae2ca3098adedb2344d281",
+    "timestamp": 1758594174958,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--GIH-c2cv"
+  },
+  {
+    "back_serial": "SN-0Tjb-Y3RQ-v4Ew",
+    "denomination": "100000000",
+    "front_serial": "SN-5HJzn-TCNPVgAA-N4k",
+    "issued_to": "Ling Lin",
+    "metadata_hash": "7db10964f06ffee5a5bb863d583df72fc68dcd175cd8eaa403297aa61c2aed9d",
+    "mining_requirements": {
+      "denomination": "100000000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 0.000256,
+      "required_difficulty": 8
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145492b714c51334e304c30754743335a7063442f794d337667587739730a584a543347614d33567351567553426f4241737667734c6964314c5951787a31677457363643585535414b5745454c4c5559446d2f54794178773d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 8,
+    "serial_number": "SN-SN--5HJ-zn-T",
+    "signature": "304402204bf99c69436b495481ef35b24e8fa6ea004aa5a547802d4ca12894b818d366d40220753c26797b099bd7926658c222affc832b069bf744813cc2c6b2bcf4003f5e1b",
+    "timestamp": 1758594222414,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--5HJ-zn-T"
+  },
+  {
+    "back_serial": "SN-g2nV-4OXT-fIrD",
+    "denomination": "1000",
+    "front_serial": "SN-aBzZIpIqpEU24A-4RM",
+    "issued_to": "viraxor",
+    "metadata_hash": "42c1724206b9a4560693f00aae39856015b7d1d90d88262aef73982586d31418",
+    "mining_requirements": {
+      "denomination": "1000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 8e-06,
+      "required_difficulty": 3
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145306c2f653033586a6f375978453554362b54706745436164776b78700a4441445730583245384e43674637744476476265494c327168332b437a436e53734a3341594a4b4573633278314a442b693738326b644c4568673d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 3,
+    "serial_number": "SN-SN--aBz-ZIpI",
+    "signature": "304402202357b67f78cc1f5d576e2e758a2b8c13fcc1992d39e2ed31bfa8f5d8b764b33d0220760cfdea308d100326b19e93bde4a27fa72767a898a7f394086e051e58640b15",
+    "timestamp": 1758594956024,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--aBz-ZIpI"
+  },
+  {
+    "back_serial": "SN-5vfD-MkEw-lj-D",
+    "denomination": "1",
+    "front_serial": "SN-NLx9WiQxiA99zw-s_4",
+    "issued_to": "viraxor",
+    "metadata_hash": "c7f8fa3bd99b183170f09b5da43b83ec6b16d4aa1d89e44b897aca69b041fec8",
+    "mining_requirements": {
+      "denomination": "1",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 1e-06,
+      "required_difficulty": 0
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145744131456a47344c34362b72377471487035744e4d536a4f4b2b55750a384e6f5532332f6744662b4a75737551395154785a75377a42786c4d4a4c6c49466c5178624b6c756f79437651354b7054643132376247527a513d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 0,
+    "serial_number": "SN-SN--NLx-9WiQ",
+    "signature": "30450221009ee29c6cd3066b72224c5f4032548951efb8ec2164b661c881260115445d869b02200bd55038ef9219f0f85f1ec41e85f9240112fd0566a862282142218ec3ca6376",
+    "timestamp": 1758594960584,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--NLx-9WiQ"
+  },
+  {
+    "back_serial": "SN-QWRg-vSmO-LzpH",
+    "denomination": "10",
+    "front_serial": "SN-qNOuIBKqClK9cg-NVI",
+    "issued_to": "viraxor",
+    "metadata_hash": "69a2c2d327fc7f7db26d780802f992fe87447cb4fa69e77d3721ede6854755dd",
+    "mining_requirements": {
+      "denomination": "10",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 2e-06,
+      "required_difficulty": 1
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741456e69354c532f7735674f2f432b464e5a436632524665675631476b4c0a784e3454564c2b544f4b504b594e6b68516d57336b5441566269665134647370506270332b7773424b63526b695148656957612b345073782b513d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 1,
+    "serial_number": "SN-SN--qNO-uIBK",
+    "signature": "3046022100e41fdc57cef011d24e06fe095c6aaa270a634a5c166f229be6e948d451086fae022100ce731468747e0abca18bfec960925d5be3c5bf1b9ea0004ef26ecef13fcdd252",
+    "timestamp": 1758594963580,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--qNO-uIBK"
+  },
+  {
+    "back_serial": "SN-8GMh-o3Qt-x7dQ",
+    "denomination": "100",
+    "front_serial": "SN-N9X2B-o5nlVjGg-5m0",
+    "issued_to": "viraxor",
+    "metadata_hash": "a465f17f37ea17334e547678608dfbad43cd6ede2a32854bc3aefaac37161974",
+    "mining_requirements": {
+      "denomination": "100",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 4e-06,
+      "required_difficulty": 2
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741456a4f73536d67706143637946546c6f4a564f473158702b61326174300a4d71704243766c444466542b717a313263686a39303163514152784a4232376b6a637944706b6f2b6d59653658596e4858504d7a4362673446413d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 2,
+    "serial_number": "SN-SN--N9X-2B-o",
+    "signature": "3045022100adea63f721660dc1c232bba83bbc2da4dea71ae3d54cadd6a5ddfb7421561ab60220583b32372072a88fb7409f78745866c750fa60d742431c8ecad29a06d874c01e",
+    "timestamp": 1758594966116,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--N9X-2B-o"
+  },
+  {
+    "back_serial": "SN-Y9Er-qdBa-gnn4",
+    "denomination": "100000",
+    "front_serial": "SN-FxFWwGBsaqVEnQ-fO4",
+    "issued_to": "viraxor",
+    "metadata_hash": "5d324785a22491be20cde824df145c8b22405ee17a179aa53cdcc4546ea8f6ae",
+    "mining_requirements": {
+      "denomination": "100000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 3.2e-05,
+      "required_difficulty": 5
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741454330563435643775762b34645a315868454761764c347549456e42580a6a4777534845425a33556468676b426c6a6449747858566d7a414d6c524a4d3336356133515158545231784d3165526856664f33644649684e773d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 5,
+    "serial_number": "SN-SN--FxF-WwGB",
+    "signature": "30460221009ea978f9ab07200cc015a2a73381d70f84dbe053d58ec5cc9b4948781ad93876022100e0254443b22ed7addf1d74c32815a73b627ec294545d3a45edd2d3f701b6c139",
+    "timestamp": 1758595338904,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--FxF-WwGB"
+  },
+  {
+    "back_serial": "SN-7NVJ-0-Jh-R-fF",
+    "denomination": "10000",
+    "front_serial": "SN-2xScx0j4aANQgw-iVo",
+    "issued_to": "viraxor",
+    "metadata_hash": "d6efe5a1a68e7d1c1e9a883cf2cbc5e08b9e1a4da745947b3bc4e8637f0a4c51",
+    "mining_requirements": {
+      "denomination": "10000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 1.6e-05,
+      "required_difficulty": 4
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741456c3952364b77586e474f4e586d4e773064354e715149514d674c324a0a627044744138746f4646534f6f7036744c487331526f57476676484432475037762f48473261785759364f7953545369624e395a437a305177513d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 4,
+    "serial_number": "SN-SN--2xS-cx0j",
+    "signature": "3046022100d2833964b89c01793e1104f3f0172a5031261d25df74ad1dfa2d865b3071efa50221009ed89ba079921eb2f4c6b338a106d098ec905109acceac9790685a6541997a39",
+    "timestamp": 1758595344806,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--2xS-cx0j"
+  },
+  {
+    "back_serial": "SN-4i3i-KnbX-554F",
+    "denomination": "10000000",
+    "front_serial": "SN-IdbVAZw4AuZU7A-sj8",
+    "issued_to": "viraxor",
+    "metadata_hash": "6707af22063a1cad4457453c9d3ad06d674cb7b9f1667a660b01dd7a76920fdf",
+    "mining_requirements": {
+      "denomination": "10000000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 0.000128,
+      "required_difficulty": 7
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a3044415163445167414574673365517243712f653659596d396341324d2f327570502f35632f0a4972754649724576554d43746744516f586b5463742b6969376f48636557733174586c3272705137416e6e76584e426354484276726d396563413d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 7,
+    "serial_number": "SN-SN--Idb-VAZw",
+    "signature": "30450220774060d6e7633ce60c3f432a4ab12c9e88036716697fa97588986afa6acc24fa02210084a1b55a2af150c6de106906c1ca2e141445f90ce9d3a7920d140f05de32867a",
+    "timestamp": 1758595353382,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--Idb-VAZw"
+  },
+  {
+    "back_serial": "SN-xLMU-ZlfA-KZ0b",
+    "denomination": "1000000",
+    "front_serial": "SN-IHKrFN7jxeIIBw-eto",
+    "issued_to": "viraxor",
+    "metadata_hash": "6196240ec6315a00c12d77930cde0edba7e5dca1b923568744229af1e8036b2b",
+    "mining_requirements": {
+      "denomination": "1000000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 6.4e-05,
+      "required_difficulty": 6
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a3044415163445167414570766a39556657417161397843706a64784c6c4d34583449526767780a786d79414a524e4d396d6b3236685034314648392f32796b64354d5157316d364a76762b3579717342482b32374c362b71424733346d476241673d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 6,
+    "serial_number": "SN-SN--IHK-rFN7",
+    "signature": "304502210092ac07384c9fe36f5acec978b6768c0580ea8a2e6b55d960b1807cc905b37d37022075a4c5c87b17f3d7129bb3d1968ef052e762b82cb4f6d5f84b7636ba8a4e2c1b",
+    "timestamp": 1758595353618,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--IHK-rFN7"
+  },
+  {
+    "back_serial": "SN-gSnS-M8aA-zXQd",
+    "denomination": "100000000",
+    "front_serial": "SN-jYUj-xFJWbF1JQ-t94",
+    "issued_to": "viraxor",
+    "metadata_hash": "861785541a4e2b782b463930c9e326a9dd428291513a86bc1529dc2918220255",
+    "mining_requirements": {
+      "denomination": "100000000",
+      "estimated_mining_time": 1,
+      "mining_cost_estimate": 0.000256,
+      "required_difficulty": 8
+    },
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145386b47777a796b346d6e503677663476455337716852733979744c420a66777731362f6958634e48694e6d4738416a364b4947653972326f71616a393463563650527649414447453536454e6a6d7150646d58723835673d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "required_difficulty": 8,
+    "serial_number": "SN-SN--jYU-j-xF",
+    "signature": "3044022027f92ac5d1f4b1fdf0e29e1ce42f72f416aaff3fcbeba899738ffe359dc53e3c02203d31a7bf1bd8e7719446648f4465631b089b3bf397b7115a86b96cee1b282261",
+    "timestamp": 1758595430874,
+    "type": "GTX_Genesis",
+    "verification_url": "https://bank.linglin.art/verify/SN-SN--jYU-j-xF"
+  }
+]

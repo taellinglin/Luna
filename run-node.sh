@@ -2,7 +2,7 @@
 # Luna Coin Node Wrapper Script
 # Run this directly without installation
 
-set -e  # Exit on any error
+set -e
 
 # Colors for output
 RED='\033[0;31m'

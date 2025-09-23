@@ -1,0 +1,22 @@
+[
+  {
+    "index": 0,
+    "previous_hash": "0",
+    "timestamp": 1758512907.124863,
+    "transactions": [
+      {
+        "denomination": "10000",
+        "difficulty": 1,
+        "message": "Luna Genesis Block",
+        "reward": 10000,
+        "serial_number": "SN-113-918-6570",
+        "timestamp": 1758512907.1248639,
+        "type": "genesis",
+        "verification_url": "https://bank.linglin.art/verify/SN-113-918-6570"
+      }
+    ],
+    "nonce": 0,
+    "hash": "c60098f2ce729847a56a13f790d3ebf3faf62adf147862a4acb0536fe72d6d67",
+    "mining_time": 0
+  }
+]
