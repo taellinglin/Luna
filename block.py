@@ -5,9 +5,9 @@ block.py - Block class for LinKoin blockchain
 import json
 import hashlib
 import time
-
+from typing import List, Dict, Set
 class Block:
-    def __init__(self, index: int, previous_hash: str, timestamp: float, transactions: list, nonce: int = 0):
+    def __init__(self, index: int, previous_hash: str, timestamp: float, transactions: List[Dict], nonce: int = 0):
         self.index = index
         self.previous_hash = previous_hash
         self.timestamp = timestamp
@@ -16,6 +16,9 @@ class Block:
         self.hash = self.calculate_hash()
         self.mining_time = 0
         self.hash_rate = 0
+        self.current_mining_hashes = 0
+        self.current_hash_rate = 0
+        self.current_hash = ""
 
     def calculate_hash(self) -> str:
         block_data = f"{self.index}{self.previous_hash}{self.timestamp}{json.dumps(self.transactions)}{self.nonce}"

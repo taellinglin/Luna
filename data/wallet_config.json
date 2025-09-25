@@ -3,13 +3,14 @@
     "port": 9333,
     "peers": [
       "63.41.180.121:9333",
-      "121.180.41.63:9333"
+      "121.180.41.63:9333",
+      "192.168.0.13:9335"
     ],
     "discovery_enabled": true,
     "max_peers": 10
   },
   "mining": {
-    "mining_reward_address": "LKC_53e17e4c049491e0eb738606c90fccd0_bd37d950",
+    "mining_reward_address": "LKC_bde803142f3c6db27b79352351915065_ca95b79a",
     "auto_mine": false,
     "mining_fee": 0.001
   },

@@ -46,7 +46,7 @@ a = Analysis(
         '_socket',
         'ssl',
     ],
-    hookspath=[],
+    hookspath=["./"],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],

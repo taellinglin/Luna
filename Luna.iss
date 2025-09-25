@@ -1,4 +1,4 @@
-; LunaSuite Inno Setup Script
+; LunaCoin Inno Setup Script
 ; Basic version - ensure this file exists in the same folder as build.bat
 
 [Setup]
@@ -10,7 +10,7 @@ AppPublisherURL=https://yourwebsite.com/
 DefaultDirName={commonpf}\Luna Suite
 DefaultGroupName=Luna Suite
 OutputDir=Output
-OutputBaseFilename=LunaSuite_Setup
+OutputBaseFilename=Luna_Setup
 Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=admin

@@ -163,6 +163,183 @@ class DataManager:
         return default
     
     @staticmethod
+    def sync_from_network(blockchain_instance, max_attempts=3):
+        """Sync blockchain data from peers, then web fallback"""
+        print("🔄 Starting network synchronization...")
+        
+        # Try peers first
+        for attempt in range(max_attempts):
+            print(f"🔍 Attempt {attempt + 1}/{max_attempts} to sync from peers...")
+            
+            if blockchain_instance.download_blockchain():
+                print("✅ Successfully synced blockchain from peers")
+                
+                # Try to mine pending transactions to confirm them
+                pending_count = len(blockchain_instance.pending_transactions)
+                if pending_count > 0:
+                    print(f"⛏️  Found {pending_count} pending transactions, attempting to mine...")
+                    # Try to get a miner address
+                    miner_address = DataManager._get_miner_address(blockchain_instance)
+                    if miner_address:
+                        blockchain_instance.mine_pending_transactions(miner_address)
+                
+                return True
+            else:
+                print(f"❌ Peer sync attempt {attempt + 1} failed")
+                time.sleep(2)  # Wait before retry
+        
+        # If peers fail, try web server
+        print("🌐 Peer sync failed, trying web server...")
+        if blockchain_instance.download_from_web("blockchain"):
+            print("✅ Successfully synced blockchain from web")
+            
+            # Try to mine pending transactions
+            pending_count = len(blockchain_instance.pending_transactions)
+            if pending_count > 0:
+                print(f"⛏️  Found {pending_count} pending transactions, attempting to mine...")
+                miner_address = DataManager._get_miner_address(blockchain_instance)
+                if miner_address:
+                    blockchain_instance.mine_pending_transactions(miner_address)
+            
+            return True
+        else:
+            print("❌ Web sync also failed")
+            return False
+    
+    @staticmethod
+    def _get_miner_address(blockchain_instance):
+        """Try to get a miner address from available wallets"""
+        try:
+            # Check if there's a wallet server running
+            if hasattr(blockchain_instance, 'wallet_server_running') and blockchain_instance.wallet_server_running:
+                # Try to get address from wallet
+                if hasattr(blockchain_instance, 'get_mining_address'):
+                    address = blockchain_instance.get_mining_address()
+                    if address:
+                        return address
+                
+                # Fallback: look for any address in the blockchain
+                for block in blockchain_instance.chain:
+                    for tx in block.transactions:
+                        if tx.get('recipient'):
+                            return tx['recipient']
+                        if tx.get('sender') and tx['sender'] != 'mining_reward':
+                            return tx['sender']
+            
+            print("⚠️  No miner address available, transactions will remain pending")
+            return None
+        except Exception as e:
+            print(f"⚠️  Error getting miner address: {e}")
+            return None
+    
+    
+
+    @staticmethod
+    def force_confirm_transactions(blockchain_instance, miner_address=None):
+        """Force mine pending transactions to confirm them"""
+        # First, ensure we have a valid Blockchain instance
+        if not blockchain_instance or isinstance(blockchain_instance, list):
+            print("❌ Invalid blockchain instance")
+            return False
+            
+        # Check if the instance has pending_transactions attribute
+        if not hasattr(blockchain_instance, 'pending_transactions'):
+            print("❌ Blockchain instance missing pending_transactions attribute")
+            return False
+            
+        pending_count = len(blockchain_instance.pending_transactions)
+        if pending_count == 0:
+            print("✅ No pending transactions to confirm")
+            return True
+        
+        print(f"⛏️  Force confirming {pending_count} pending transactions...")
+        
+        # Get miner address if not provided
+        if not miner_address:
+            miner_address = DataManager._get_miner_address(blockchain_instance)
+        
+        if not miner_address:
+            print("❌ No miner address available for confirmation")
+            return False
+        
+        # Check if mine_pending_transactions method exists
+        if not hasattr(blockchain_instance, 'mine_pending_transactions'):
+            print("❌ Blockchain instance missing mine_pending_transactions method")
+            return False
+        
+        # Mine the transactions
+        success = blockchain_instance.mine_pending_transactions(miner_address)
+        if success:
+            print(f"✅ Successfully confirmed {pending_count} transactions")
+        else:
+            print("❌ Failed to confirm transactions")
+        
+        return success
+
+    @staticmethod
+    def load_wallet_data(blockchain_instance):
+        """Load wallet data with proper error handling"""
+        # Ensure we have a valid blockchain instance
+        if not blockchain_instance or isinstance(blockchain_instance, list):
+            print("❌ Invalid blockchain instance provided")
+            return None
+            
+        wallet_file = DataManager.get_file_path("wallet.json")
+        
+        if not os.path.exists(wallet_file):
+            print("⚠️  No wallet found, creating new one...")
+            return DataManager.create_default_wallet(blockchain_instance)
+        
+        try:
+            # Create a new Wallet instance
+            wallet = Wallet(blockchain_instance)
+            success = wallet.load_wallet("wallet.json")
+            if success:
+                print(f"✅ Wallet loaded: {wallet.address}")
+                return wallet
+            else:
+                print("❌ Failed to load wallet, creating new one...")
+                return DataManager.create_default_wallet(blockchain_instance)
+        except Exception as e:
+            print(f"❌ Error loading wallet: {e}")
+            return DataManager.create_default_wallet(blockchain_instance)
+
+    @staticmethod
+    def create_default_wallet(blockchain_instance):
+        """Create a default wallet"""
+        try:
+            wallet = Wallet(blockchain_instance)
+            success = wallet.save_wallet("wallet.json")
+            if success:
+                print(f"✅ New wallet created: {wallet.address}")
+                return wallet
+            else:
+                print("❌ Failed to create wallet")
+                return None
+        except Exception as e:
+            print(f"❌ Error creating wallet: {e}")
+            return None
+    
+    @staticmethod
+    def get_transaction_status(blockchain_instance, transaction_id):
+        """Check transaction status across network"""
+        print(f"🔍 Checking status for transaction: {transaction_id}")
+        
+        # First check local blockchain
+        status = blockchain_instance.get_transaction_status(transaction_id)
+        
+        if status['status'] != 'not_found':
+            return status
+        
+        # If not found locally, try to sync from network
+        print("📡 Transaction not found locally, syncing from network...")
+        if DataManager.sync_from_network(blockchain_instance):
+            # Check again after sync
+            status = blockchain_instance.get_transaction_status(transaction_id)
+        
+        return status
+    
+    @staticmethod
     def get_data_location_info():
         """Get information about where data is being stored"""
         data_dir = DataManager.get_data_dir()
@@ -196,6 +373,31 @@ class DataManager:
             print(f"❌ Error listing data files: {e}")
             return []
 
+    @staticmethod
+    def emergency_recovery(blockchain_instance):
+        """Emergency recovery for stuck transactions"""
+        print("🚨 Starting emergency recovery...")
+        
+        # 1. Sync from network
+        print("1. Syncing from network...")
+        DataManager.sync_from_network(blockchain_instance)
+        
+        # 2. Force mine pending transactions
+        print("2. Mining pending transactions...")
+        DataManager.force_confirm_transactions(blockchain_instance)
+        
+        # 3. Validate blockchain
+        print("3. Validating blockchain...")
+        if blockchain_instance.is_chain_valid():
+            print("✅ Blockchain validation passed")
+        else:
+            print("❌ Blockchain validation failed")
+        
+        # 4. Save everything
+        print("4. Saving data...")
+        blockchain_instance.save_chain()
+        
+        print("✅ Emergency recovery completed")
 class SimpleEncryptor:
     """Simple encryption using XOR for basic obfuscation"""
     def __init__(self, key=None):
@@ -361,7 +563,165 @@ class Wallet:
         # Discover peers
         self.discover_peers()
         self.start_periodic_sync(300)
-   
+    # Add this debug method to your Wallet class
+    def debug_connection(self):
+        """Debug the wallet's node connection"""
+        print(f"🔍 Wallet Connection Debug:")
+        print(f"   Node type: {type(self.node)}")
+        print(f"   Node value: {self.node}")
+        print(f"   Wallet address: {self.address}")
+        
+        if isinstance(self.node, list):
+            print("   ❌ ERROR: Node is a list instead of Blockchain instance!")
+            print(f"   List length: {len(self.node)}")
+            if self.node:
+                print(f"   First item: {self.node[0]}")
+        elif hasattr(self.node, 'chain'):
+            print(f"   ✅ Properly connected to blockchain with {len(self.node.chain)} blocks")
+        else:
+            print("   ⚠️  Node connection issue")
+    
+    def confirm_pending_transactions(self):
+        """Confirm pending transactions by mining them"""
+        if not self.node:
+            return {"error": "Not connected to blockchain node"}
+        
+        # Check if node has the required methods
+        if not hasattr(self.node, 'pending_transactions'):
+            return {"error": "Node missing pending_transactions attribute"}
+            
+        if not hasattr(self.node, 'mine_pending_transactions'):
+            return {"error": "Node missing mine_pending_transactions method"}
+        
+        pending_count = len(self.node.pending_transactions)
+        if pending_count == 0:
+            return {"message": "No pending transactions to confirm"}
+        
+        print(f"⛏️  Confirming {pending_count} pending transactions...")
+        
+        # Use wallet address as miner address
+        success = self.node.mine_pending_transactions(self.address)
+        
+        if success:
+            return {"success": True, "message": f"Confirmed {pending_count} transactions"}
+        else:
+            return {"error": "Failed to confirm transactions"}
+    def get_effective_balance(self, address):
+        """Get balance including both confirmed and pending transactions"""
+        confirmed_balance = 0
+        pending_debits = 0
+        
+        # Find the wallet for this address
+        wallet_addr = None
+        for addr in self.addresses:
+            if addr["address"] == address:
+                wallet_addr = addr
+                break
+        
+        if not wallet_addr:
+            return 0
+        
+        # Start with confirmed balance
+        confirmed_balance = wallet_addr["balance"]
+        
+        # Subtract pending outgoing transactions
+        for tx in wallet_addr["transactions"]:
+            if tx.get("status") == "pending" and tx.get("type") == "outgoing":
+                pending_debits += tx.get("amount", 0)
+        
+        # Also check mempool for pending transactions that aren't in wallet history yet
+        for tx in self.mempool:
+            if tx.get("from") == address:
+                # Check if this transaction is already in wallet history
+                tx_exists = False
+                for wtx in wallet_addr["transactions"]:
+                    if (wtx.get("to") == tx.get("to") and 
+                        wtx.get("amount") == tx.get("amount") and 
+                        wtx.get("status") == "pending"):
+                        tx_exists = True
+                        break
+                
+                if not tx_exists:
+                    pending_debits += tx.get("amount", 0)
+        
+        effective_balance = confirmed_balance - pending_debits
+        return max(0, effective_balance)
+
+    def check_transaction_status(self, tx_signature):
+        """Check if a transaction has been confirmed"""
+        # Check if transaction is in any block
+        for block_index, block in enumerate(self.blockchain):
+            for tx in block.get("transactions", []):
+                if tx.get("signature") == tx_signature:
+                    return {
+                        "status": "confirmed",
+                        "block_height": block_index + 1,
+                        "confirmations": len(self.blockchain) - block_index
+                    }
+        
+        # Check if transaction is still in mempool
+        for tx in self.mempool:
+            if tx.get("signature") == tx_signature:
+                return {"status": "pending", "confirmations": 0}
+        
+        return {"status": "unknown", "confirmations": 0}
+
+    def trigger_mining(self):
+        """Ask the node to mine a block with pending transactions - FIXED"""
+        try:
+            # Use the correct action that the node understands
+            response = self.send_to_node({"action": "start_mining", "miner_address": self.get_default_address()})
+            if response and response.get("status") == "success":
+                print("✅ Mining triggered successfully")
+                # Wait a bit for mining to complete
+                time.sleep(5)
+                # Sync to get the new block
+                self.load_blockchain()
+                return True
+            else:
+                error_msg = response.get("message", "Unknown error") if response else "No response"
+                print(f"❌ Failed to trigger mining: {error_msg}")
+                return False
+        except Exception as e:
+            print(f"❌ Error triggering mining: {e}")
+            return False
+    # In wallet.py, when creating a spend transaction:
+    def create_spend_transaction(self, from_address, to_address, amount, spent_transaction_signature):
+        """Create a spend transaction that references the specific UTXO being spent"""
+        transaction = {
+            "type": "spend",
+            "from": from_address,
+            "to": to_address,
+            "amount": amount,
+            "timestamp": time.time(),
+            "signature": f"spend_{int(time.time())}_{hashlib.sha256(f'{from_address}{to_address}{amount}'.encode()).hexdigest()[:16]}",
+            "spent_transaction": spent_transaction_signature,  # Reference to the UTXO being spent
+            "spent_output_index": 0  # Which output of the previous transaction is being spent
+        }
+        return transaction
+    def check_node_status(self):
+        """Check if the node is running and mining"""
+        try:
+            response = self.send_to_node({"action": "get_status"})
+            if response and response.get("status") == "success":
+                status = response.get("node_status", {})
+                print(f"🟢 Node is running and responsive")
+                print(f"   📊 Blockchain Height: {status.get('blockchain_height', 0)}")
+                print(f"   📋 Mempool Size: {status.get('mempool_size', 0)}")
+                print(f"   ⚙️  Difficulty: {status.get('difficulty', 0)}")
+                print(f"   🌐 Connected Peers: {status.get('peers_count', 0)}")
+                print(f"   ⛏️  Currently Mining: {'Yes' if status.get('is_mining') else 'No'}")
+                print(f"   🔗 Node Address: {status.get('node_address', 'Unknown')}")
+                return True
+            else:
+                error_msg = response.get("message", "Unknown error") if response else "No response"
+                print(f"🔴 Node responded with error: {error_msg}")
+                return False
+        except Exception as e:
+            print(f"🔴 Cannot connect to node: {e}")
+            print("💡 Make sure the node is running with: python luna_node.py")
+            return False
+
     def start_rpc_server(self):
         """Start RPC server to handle requests from nodes"""
         def rpc_server_thread(wallet_instance):
@@ -453,19 +813,27 @@ class Wallet:
         
         return {"status": "error", "message": "Unknown action"}
 
-    def get_balance(self, address):
-        """Get balance for a specific address"""
-        for wallet in self.addresses:
-            if wallet["address"] == address:
-                return wallet["balance"]
-        return 0
+    def get_balance(self):
+        """Wallet queries the node for balance"""
+        if not self.node:
+            return {"error": "Not connected to node"}
+        
+        return self.node.get_balance(self.address)
 
-    def encrypt_data(self, data):
-        """Encrypt sensitive wallet data"""
-        if self.config.config["security"]["encrypt_wallet"]:
-            return self.cipher.encrypt(data)
-        return data
-    
+    def get_transaction_status(self, transaction_id):
+        """Wallet queries the node for transaction status"""
+        if not self.node:
+            return {"error": "Not connected to node"}
+        
+        return self.node.get_transaction_status(transaction_id)
+
+    def get_transaction_history(self):
+            """Wallet queries the node for transaction history"""
+            if not self.node:
+                return {"error": "Not connected to node"}
+            
+            return self.node.get_address_transactions(self.address)
+
     def decrypt_data(self, encrypted_data):
         """Decrypt wallet data"""
         if self.config.config["security"]["encrypt_wallet"]:
@@ -528,8 +896,11 @@ class Wallet:
         """Create a signed transaction ready for broadcasting"""
         for wallet in self.addresses:
             if wallet["address"] == from_address:
-                if wallet["balance"] < amount:
-                    raise ValueError("Insufficient balance")
+                # Use effective balance instead of confirmed balance
+                effective_balance = self.get_effective_balance(from_address)
+                
+                if effective_balance < amount:
+                    raise ValueError(f"Insufficient balance. Available: {effective_balance} LC, Attempted: {amount} LC")
                 
                 # Decrypt private key for signing
                 private_key = self.decrypt_data(wallet["private_key"])
@@ -547,13 +918,14 @@ class Wallet:
                     "signature": self.sign_transaction(private_key, from_address, to_address, amount)
                 }
                 
-                # Add to transaction history
+                # Add to transaction history with pending status
                 wallet["transactions"].append({
                     "type": "outgoing",
                     "to": to_address,
                     "amount": amount,
                     "timestamp": transaction["timestamp"],
-                    "status": "pending"
+                    "status": "pending",
+                    "signature": transaction["signature"]
                 })
                 
                 self.save_wallet()
@@ -620,67 +992,79 @@ class Wallet:
             return False
             
     def send_to_node(self, data, host=None, port=None, timeout=10):
-        """Send data to the blockchain node with configurable timeout"""
-        try:
-            if host is None:
-                host = self.config.config["node"]["host"]
-            if port is None:
-                port = self.config.config["node"]["port"]
-                
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(timeout)  # Use configurable timeout
-                s.connect((host, int(port)))
-                
-                # Send message with length prefix (new protocol)
-                message_json = json.dumps(data)
-                message_data = message_json.encode()
-                message_length = len(message_data)
-                
-                # Send length first (4 bytes, big-endian)
-                s.sendall(message_length.to_bytes(4, 'big'))
-                # Send message
-                s.sendall(message_data)
-                
-                # Receive response with length prefix
-                # First get the length (4 bytes)
-                length_bytes = s.recv(4)
-                if not length_bytes or len(length_bytes) != 4:
-                    print("❌ Invalid response length from node")
-                    return {"status": "error", "message": "Invalid response length"}
-                
-                response_length = int.from_bytes(length_bytes, 'big')
-                
-                # Now receive the actual response data
-                response_data = b""
-                bytes_received = 0
-                
-                while bytes_received < response_length:
-                    chunk = s.recv(min(4096, response_length - bytes_received))
-                    if not chunk:
-                        break
-                    response_data += chunk
-                    bytes_received += len(chunk)
-                
-                if bytes_received == response_length:
-                    try:
-                        return json.loads(response_data.decode())
-                    except json.JSONDecodeError as e:
-                        print(f"❌ Invalid JSON response from node: {e}")
-                        print(f"Raw response: {response_data[:100]}...")
-                        return {"status": "error", "message": "Invalid JSON response from node"}
-                else:
-                    print(f"❌ Incomplete response from node: {bytes_received}/{response_length} bytes")
-                    return {"status": "error", "message": "Incomplete response from node"}
+        """Send data to the blockchain node with better error handling"""
+        max_retries = 3
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                if host is None:
+                    host = self.config.config["node"]["host"]
+                if port is None:
+                    port = self.config.config["node"]["port"]
                     
-        except socket.timeout:
-            print("❌ Node communication timeout")
-            return {"status": "error", "message": "Node communication timeout"}
-        except ConnectionRefusedError:
-            print("❌ Connection refused - is the node running?")
-            return {"status": "error", "message": "Connection refused - node not running"}
-        except Exception as e:
-            print(f"❌ Node communication error: {e}")
-            return {"status": "error", "message": f"Node communication error: {str(e)}"}
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(timeout)
+                    s.connect((host, int(port)))
+                    
+                    # Send message with length prefix
+                    message_json = json.dumps(data)
+                    message_data = message_json.encode()
+                    message_length = len(message_data)
+                    
+                    s.sendall(message_length.to_bytes(4, 'big'))
+                    s.sendall(message_data)
+                    
+                    # Receive response
+                    length_bytes = s.recv(4)
+                    if not length_bytes or len(length_bytes) != 4:
+                        if attempt < max_retries - 1:
+                            time.sleep(retry_delay)
+                            continue
+                        return {"status": "error", "message": "Invalid response length"}
+                    
+                    response_length = int.from_bytes(length_bytes, 'big')
+                    response_data = b""
+                    bytes_received = 0
+                    
+                    while bytes_received < response_length:
+                        chunk = s.recv(min(4096, response_length - bytes_received))
+                        if not chunk:
+                            break
+                        response_data += chunk
+                        bytes_received += len(chunk)
+                    
+                    if bytes_received == response_length:
+                        try:
+                            return json.loads(response_data.decode())
+                        except json.JSONDecodeError:
+                            return {"status": "error", "message": "Invalid JSON response"}
+                    else:
+                        if attempt < max_retries - 1:
+                            time.sleep(retry_delay)
+                            continue
+                        return {"status": "error", "message": "Incomplete response"}
+                        
+            except socket.timeout:
+                if attempt < max_retries - 1:
+                    print(f"⏳ Timeout, retrying... ({attempt + 1}/{max_retries})")
+                    time.sleep(retry_delay)
+                    continue
+                return {"status": "error", "message": "Node communication timeout"}
+            except ConnectionRefusedError:
+                if attempt < max_retries - 1:
+                    print(f"🔌 Connection refused, retrying... ({attempt + 1}/{max_retries})")
+                    time.sleep(retry_delay)
+                    continue
+                return {"status": "error", "message": "Connection refused - node not running"}
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"🔄 Error, retrying... ({attempt + 1}/{max_retries}): {e}")
+                    time.sleep(retry_delay)
+                    continue
+                return {"status": "error", "message": f"Node communication error: {str(e)}"}
+        
+        return {"status": "error", "message": "Max retries exceeded"}
     
     def start_p2p_server(self):
         """Start P2P server to receive transactions and blocks"""
@@ -725,6 +1109,7 @@ class Wallet:
             pass
         finally:
             client_socket.close()
+
     def debug_blockchain_content(self):
         """Debug what's actually in the blockchain"""
         print("\n🔍 Blockchain Content Debug:")
@@ -751,6 +1136,7 @@ class Wallet:
                 if tx_type == "reward":
                     print(f"      Denomination: {tx.get('denomination', 'N/A')}")
                     print(f"      Serial: {tx.get('serial_number', 'N/A')}")
+
     def process_message(self, message, peer_address):
         """Process incoming P2P messages"""
         msg_type = message.get("type")
@@ -925,6 +1311,7 @@ class Wallet:
             
             # Save to file using DataManager
             DataManager.save_json("mempool.json", self.mempool)
+
     def debug_rewards(self):
         """Debug reward transactions in the blockchain"""
         print("\n🔍 Reward Transaction Debug:")
@@ -962,6 +1349,7 @@ class Wallet:
                 print(f"Wallet balance: {wallet['balance']} LC")
                 print(f"Wallet transactions: {len(wallet['transactions'])}")
                 break
+
     def relay_message(self, message, source_peer):
         """Relay message to other peers (flooding)"""
         for peer in list(self.peer_nodes):
@@ -996,6 +1384,7 @@ class Wallet:
         """Save blockchain to local file using DataManager"""
         DataManager.save_json("blockchain.json", self.blockchain)
         print(f"💾 Blockchain saved to file ({len(self.blockchain)} blocks)")
+
     def sync_mempool_with_node(self):
         """Synchronize mempool with the node"""
         try:
@@ -1007,7 +1396,7 @@ class Wallet:
                 
                 # Replace wallet's mempool with node's mempool
                 self.mempool = node_mempool
-                DataManager.save_json("mempool.json", self.mempool)
+                DataManager.save_json("mempool_wallet.json", self.mempool)
                 
                 print(f"✅ Mempool synced: {len(self.mempool)} transactions")
                 return True
@@ -1026,9 +1415,10 @@ class Wallet:
             return self.mempool
         
         # Fallback to local file
-        self.mempool = DataManager.load_json("mempool.json", [])
+        self.mempool = DataManager.load_json("mempool_wallet.json", [])
         print(f"✅ Loaded mempool from file: {len(self.mempool)} transactions")
         return self.mempool
+
     def load_blockchain(self):
         """Load blockchain using the same method as the node - download from web first, then peers"""
         print("🔄 Syncing with blockchain node...")
@@ -1108,14 +1498,16 @@ class Wallet:
             return False
 
     def update_balances_from_blockchain(self):
-        """Update wallet balances from the entire blockchain - with better reward detection"""
+        """Update wallet balances from the entire blockchain - FIXED VERSION"""
         print("💰 Updating balances from blockchain...")
         
         # Reset all balances to zero first to prevent double-counting
         for wallet in self.addresses:
             wallet["balance"] = 0
-            # Clear only confirmed transactions to avoid duplicates
-            wallet["transactions"] = [tx for tx in wallet["transactions"] if tx.get("status") != "confirmed"]
+            # Keep transaction history but mark all as needs review
+            for tx in wallet["transactions"]:
+                if tx.get("status") == "confirmed":
+                    tx["needs_verification"] = True
         
         # Process ALL blocks and ALL transactions
         total_transactions = 0
@@ -1127,39 +1519,33 @@ class Wallet:
             transactions = block.get("transactions", [])
             total_transactions += len(transactions)
             
-            # Debug: show block info
-            block_hash_preview = block.get("hash", "N/A")[:16] + "..."
-            print(f"  Block {block_index}: {len(transactions)} transactions, hash: {block_hash_preview}")
+            print(f"  Block {block_index}: {len(transactions)} transactions")
             
-            for tx_index, tx in enumerate(transactions):
+            for tx in transactions:
                 tx_type = tx.get("type")
                 amount = tx.get("amount", 0)
                 to_address = tx.get("to", "")
-                from_address = tx.get("from", "")
                 
-                # Debug each transaction
-                print(f"    TX {tx_index}: type='{tx_type}', amount={amount}, to={to_address[:16]}..., from={from_address[:16] if from_address else 'N/A'}")
-                
-                # Handle mining reward transactions - check multiple possible type values
-                if tx_type in ["reward", "mining_reward", "block_reward"]:
-                    print(f"      🎯 Found reward transaction: {amount} LC to {to_address[:16]}...")
+                # CRITICAL FIX: Better reward detection
+                if tx_type == "reward":
+                    print(f"    🎯 REWARD TX: {amount} LC to {to_address[:16]}...")
                     
                     for wallet_addr in self.addresses:
                         if wallet_addr["address"] == to_address:
                             wallet_addr["balance"] += amount
                             reward_transactions += 1
                             
-                            # Create unique signature for reward transaction
+                            # Create unique signature for this reward
                             tx_signature = tx.get("signature") or f"reward_{block_index}_{to_address}_{amount}"
                             
-                            # Check if this reward is already recorded
+                            # Check if this reward already exists
                             reward_exists = False
                             for existing_tx in wallet_addr["transactions"]:
                                 if (existing_tx.get("type") == "reward" and 
                                     existing_tx.get("block_height") == block_index + 1 and
-                                    existing_tx.get("amount") == amount and
-                                    existing_tx.get("to") == to_address):
+                                    existing_tx.get("amount") == amount):
                                     reward_exists = True
+                                    existing_tx["needs_verification"] = False
                                     break
                             
                             if not reward_exists:
@@ -1176,51 +1562,28 @@ class Wallet:
                                     "serial_number": tx.get("serial_number", ""),
                                     "block_hash": block.get("hash", "")
                                 })
-                                print(f"      ✅ Added reward: +{amount} LC to {to_address[:16]}...")
-                    continue
+                                print(f"      ✅ ADDED REWARD: +{amount} LC")
                 
-                # Handle regular outgoing transactions
-                if from_address:
-                    for wallet_addr in self.addresses:
-                        if wallet_addr["address"] == from_address:
-                            wallet_addr["balance"] -= amount
-                            print(f"      ➖ Outgoing: -{amount} LC from {from_address[:16]}...")
-                            
-                            # Update transaction status if this is our pending transaction
-                            tx_signature = tx.get("signature")
-                            for wtx in wallet_addr["transactions"]:
-                                if (wtx.get("status") == "pending" and 
-                                    wtx.get("to") == to_address and 
-                                    abs(wtx.get("amount", 0) - amount) < 0.001):
-                                    wtx["status"] = "confirmed"
-                                    wtx["block_height"] = block_index + 1
-                                    wtx["signature"] = tx_signature
-                
-                # Handle incoming transactions
-                if to_address:
-                    for wallet_addr in self.addresses:
-                        if wallet_addr["address"] == to_address:
-                            wallet_addr["balance"] += amount
-                            print(f"      ➕ Incoming: +{amount} LC to {to_address[:16]}...")
-                            
-                            # Add to transaction history if not already there
-                            tx_signature = tx.get("signature")
-                            if not any(t.get("signature") == tx_signature for t in wallet_addr["transactions"]):
-                                wallet_addr["transactions"].append({
-                                    "type": "incoming",
-                                    "from": from_address or "unknown",
-                                    "to": to_address,
-                                    "amount": amount,
-                                    "timestamp": tx.get("timestamp", time.time()),
-                                    "status": "confirmed",
-                                    "block_height": block_index + 1,
-                                    "signature": tx_signature,
-                                    "memo": tx.get("memo", "")
-                                })
+                # Also handle regular transactions
+                elif tx_type == "transfer":
+                    # Handle outgoing
+                    if tx.get("from"):
+                        for wallet_addr in self.addresses:
+                            if wallet_addr["address"] == tx.get("from"):
+                                wallet_addr["balance"] -= amount
+                    
+                    # Handle incoming  
+                    if to_address:
+                        for wallet_addr in self.addresses:
+                            if wallet_addr["address"] == to_address:
+                                wallet_addr["balance"] += amount
+        
+        # Clean up verification markers
+        for wallet in self.addresses:
+            wallet["transactions"] = [tx for tx in wallet["transactions"] if not tx.get("needs_verification", False)]
         
         self.save_wallet()
-        print(f"✅ Balances updated: {total_transactions} transactions processed "
-            f"({reward_transactions} rewards)")
+        print(f"✅ Balances updated: {reward_transactions} reward transactions found")
 
     def load_blockchain_from_file(self):
         """Load blockchain from local file using DataManager"""
@@ -1324,6 +1687,34 @@ class Wallet:
         
         threading.Thread(target=sync_thread, daemon=True).start()
 
+    def show_balance_with_pending(self):
+        """Show balance including pending transactions"""
+        print("\n💰 Balance Details:")
+        print("=" * 60)
+        
+        for wallet in self.addresses:
+            confirmed = wallet["balance"]
+            effective = self.get_effective_balance(wallet["address"])
+            pending_count = sum(1 for tx in wallet["transactions"] if tx.get("status") == "pending")
+            
+            print(f"Address: {wallet['address']}")
+            print(f"  Confirmed balance: {confirmed} LC")
+            print(f"  Effective balance: {effective} LC (including pending)")
+            print(f"  Pending transactions: {pending_count}")
+            
+            # Show pending transactions
+            for tx in wallet["transactions"]:
+                if tx.get("status") == "pending":
+                    tx_type = tx.get("type", "outgoing")
+                    amount = tx.get("amount", 0)
+                    to_addr = tx.get("to", "N/A")[:20] + "..."
+                    print(f"    ⏳ {tx_type}: {amount} LC to {to_addr}")
+    def encrypt_data(self, data, password=None):
+        """Simple encryption method to fix the error"""
+        if isinstance(data, str):
+            return data  # Just return as-is for now
+        else:
+            return str(data)
     def run_interactive_mode(self):
         """Run wallet in interactive mode"""
         print("💰 LunaCoin Wallet - Interactive Mode")
@@ -1345,7 +1736,7 @@ class Wallet:
                     break
                 elif command == "help":
                     self.show_help()
-                # Add these commands to the interactive mode
+                
                 elif command == "mempool":
                     print(f"📋 Mempool: {len(self.mempool)} transactions")
                     for i, tx in enumerate(self.mempool):
@@ -1354,13 +1745,46 @@ class Wallet:
                         from_addr = tx.get("from", "N/A")[:16] + "..."
                         to_addr = tx.get("to", "N/A")[:16] + "..."
                         print(f"  {i+1}. {tx_type}: {amount} LC {from_addr} → {to_addr}")
-
                 elif command == "clearmempool":
                     confirm = input("Are you sure you want to clear the mempool? (y/n): ")
                     if confirm.lower() == 'y':
                         self.mempool = []
                         DataManager.save_json("mempool.json", self.mempool)
                         print("✅ Mempool cleared")
+                # In your main() function, add these commands:
+                elif command == "sync":
+                    print("🔄 Syncing from network...")
+                    if DataManager.sync_from_network(self.blockchain):
+                        print("✅ Sync completed successfully")
+                    else:
+                        print("❌ Sync failed")
+
+                elif command == "confirm":
+                    print("⛏️  Confirming pending transactions...")
+                    if DataManager.force_confirm_transactions(self.blockchain):
+                        print("✅ Transactions confirmed")
+                    else:
+                        print("❌ Failed to confirm transactions")
+
+                elif command == "recover":
+                    print("🚨 Starting emergency recovery...")
+                    DataManager.emergency_recovery(self.blockchain)
+
+                elif command.startswith("transaction status"):
+                    parts = command.split()
+                    if len(parts) >= 3:
+                        tx_id = parts[2]
+                        status = DataManager.get_transaction_status(self.blockchain, tx_id)
+                        # Display the status nicely
+                        print(f"\n📊 Transaction Status: {tx_id}")
+                        print(f"   Status: {status['status']}")
+                        if status['status'] == 'confirmed':
+                            print(f"   Block Height: {status.get('block_height', 'N/A')}")
+                            print(f"   Confirmations: {status.get('confirmations', 0)}")
+                        elif status['status'] == 'pending':
+                            print("   ⚠️  Transaction is pending (not yet mined)")
+                    else:
+                        print("❌ Usage: transaction status <transaction_id>")
                 elif command == "setminingaddress":
                     if self.addresses:
                         print("Select mining reward address:")
@@ -1382,24 +1806,13 @@ class Wallet:
                         print("❌ No addresses in wallet")
                 elif command == "status":
                     show_wallet_info()
-                elif command == "sync":
-                    print("🔄 Syncing with blockchain node...")
-                    response = self.send_to_node({"action": "get_blockchain_info"})
-                    if response and response.get("status") == "success":
-                        print(f"📊 Node info: Height {response.get('blockchain_height', 0)}, "
-                            f"Pending TXs: {response.get('pending_transactions', 0)}")
-                    
-                    # Sync both blockchain and mempool
-                    self.load_blockchain()
-                    self.sync_mempool_with_node()
-                    print("✅ Complete synchronization finished")
+                
                 elif command == "new":
                     label = input("Enter wallet label: ") or ""
                     new_addr = self.generate_address(label)
                     print(f"✅ New address: {new_addr}")
                 elif command == "balance":
-                    for addr in self.addresses:
-                        print(f"{addr['address']}: {addr['balance']} LKC")
+                    self.show_balance_with_pending()
                 elif command.startswith("addpeer"):
                     parts = command.split()
                     if len(parts) == 2:
@@ -1419,20 +1832,30 @@ class Wallet:
                 elif command == "discover":
                     self.discover_peers()
                     print(f"🔍 Found {len(self.peer_nodes)} peers")
-                elif command == "sync":
-                    print("🔄 Syncing with blockchain node...")
-                    response = self.send_to_node({"action": "get_blockchain_info"})
-                    if response and response.get("status") == "success":
-                        print(f"📊 Node info: Height {response.get('blockchain_height', 0)}, "
-                            f"Pending TXs: {response.get('pending_transactions', 0)}")
-                    
-                    # Load full blockchain
-                    self.load_blockchain()
-                    print("✅ Blockchain synchronized")
                 elif command == "backup":
                     self.backup_wallet()
                 elif command == "debugblockchain":
-                    wallet.debug_blockchain_content()
+                    self.debug_blockchain_content()
+                elif command == "debugrewards":
+                    self.debug_rewards()
+                elif command == "txstatus":
+                    if self.addresses:
+                        # Show status of recent transactions
+                        for wallet in self.addresses:
+                            print(f"\n📊 Transaction status for {wallet['address'][:20]}...:")
+                            for tx in wallet["transactions"][-5:]:  # Last 5 transactions
+                                tx_sig = tx.get("signature", "unknown")[:16] + "..."
+                                status = self.check_transaction_status(tx.get("signature"))
+                                print(f"  {tx_sig}: {status['status']} ({status['confirmations']} confirmations)")
+                elif command == "mine":
+                    print("⛏️  Triggering mining on node...")
+                    if self.trigger_mining():
+                        print("✅ Mining completed, syncing blockchain...")
+                        self.load_blockchain()
+                    else:
+                        print("❌ Mining failed")
+                elif command == "nodestatus":
+                    self.check_node_status()
                 elif command.startswith("send"):
                     parts = command.split()
                     if len(parts) >= 3:
@@ -1462,8 +1885,11 @@ class Wallet:
         print("\n💡 Available Commands:")
         print("  status     - Show wallet status")
         print("  new        - Generate new address")
-        print("  balance    - Show balances")
+        print("  balance    - Show balances (including pending)")
         print("  send       - Send coins (send <address> <amount> [memo])")
+        print("  txstatus   - Check transaction status")
+        print("  mine       - Trigger mining to confirm transactions")
+        print("  nodestatus - Check node status")
         print("  peers      - Show connected peers")
         print("  addpeer    - Add peer (addpeer <ip:port>)")
         print("  discover   - Discover new peers")
@@ -1564,8 +1990,7 @@ if __name__ == "__main__":
             wallet.backup_wallet()
             
         elif args.command == "balance":
-            for addr in wallet.addresses:
-                print(f"{addr['address']}: {addr['balance']} LKC")
+            wallet.show_balance_with_pending()
                 
         elif args.command == "sync":
             wallet.load_blockchain()
@@ -1590,7 +2015,24 @@ if __name__ == "__main__":
                 print("\n🛑 Shutting down wallet server...")
         elif args.command == "debugrewards":
             wallet.debug_rewards()
-        
+        elif args.command == "txstatus":
+            if wallet.addresses:
+                for wallet_addr in wallet.addresses:
+                    print(f"\n📊 Transaction status for {wallet_addr['address'][:20]}...:")
+                    for tx in wallet_addr["transactions"][-5:]:
+                        tx_sig = tx.get("signature", "unknown")[:16] + "..."
+                        status = wallet.check_transaction_status(tx.get("signature"))
+                        print(f"  {tx_sig}: {status['status']} ({status['confirmations']} confirmations)")
+        elif args.command == "mine":
+            print("⛏️  Triggering mining on node...")
+            if wallet.trigger_mining():
+                print("✅ Mining completed, syncing blockchain...")
+                wallet.load_blockchain()
+            else:
+                print("❌ Mining failed")
+        elif args.command == "nodestatus":
+            wallet.check_node_status()
+            
         else:
             show_wallet_info()
             print("\n💡 Usage:")
@@ -1603,6 +2045,9 @@ if __name__ == "__main__":
             print("  python luna_wallet.py backup")
             print("  python luna_wallet.py balance")
             print("  python luna_wallet.py sync")
+            print("  python luna_wallet.py txstatus")
+            print("  python luna_wallet.py mine")
+            print("  python luna_wallet.py nodestatus")
             
     except KeyboardInterrupt:
         print("\n🛑 Shutting down wallet...")

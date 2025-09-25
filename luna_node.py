@@ -1,46 +1,41 @@
-#!/usr/bin/env python3
-"""
-luna_node.py - The Luna Coin blockchain node and miner with P2P networking.
-Elaborate mining system with denomination-based rewards, real-time statistics, and peer-to-peer networking.
-"""
 import os
 import sys
-import ssl
-import certifi
 import json
-
-def configure_ssl_for_frozen_app():
-    """Configure SSL for PyInstaller frozen applications"""
-    
-    # Remove the DLL copying code entirely and rely on proper PyInstaller configuration
-    if getattr(sys, 'frozen', False):
-        # PyInstaller should handle this automatically if configured correctly
-        print("🔐 Running as frozen application - SSL should be bundled")
-        
-        # Verify SSL is working
-        try:
-            import ssl
-            context = ssl.create_default_context()
-            print("✅ SSL is working correctly")
-        except Exception as e:
-            print(f"❌ SSL error: {e}")
-            # Fallback: disable SSL verification for internal APIs only
-            import warnings
-            warnings.filterwarnings('ignore', message='Unverified HTTPS request')
-
-# Now set PATH to include current directory
-os.environ['PATH'] = os.getcwd() + os.pathsep + os.environ['PATH']
-import hashlib
 import time
 import threading
-import math
 import socket
 import atexit
-import random
-import uuid
-from urllib.parse import urlparse
 from typing import List, Dict, Set
-
+import threading
+import netifaces
+import socket
+import hashlib
+import time
+import json
+from urllib.parse import urlparse
+import uuid
+import datetime
+# Try to import netifaces, but provide fallback if not available
+try:
+    import netifaces
+    NETIFACES_AVAILABLE = True
+except ImportError:
+    print("⚠️ netifaces not available, using basic network detection")
+    NETIFACES_AVAILABLE = False
+    
+#!/usr/bin/env python3
+"""
+block.py - Block class for LinKoin blockchain
+"""
+import json
+import hashlib
+import time
+from typing import List, Dict, Set
+import os
+import sys
+import json 
+import json
+import urllib
 # Try to use a simpler HTTP client that works better with PyInstaller
 try:
     import urllib.request
@@ -55,14 +50,45 @@ except ImportError as e:
     print(f"⚠️ SSL not available: {e}")
     SSL_AVAILABLE = False
 
-# Try to import netifaces, but provide fallback if not available
-try:
-    import netifaces
-    NETIFACES_AVAILABLE = True
-except ImportError:
-    print("⚠️ netifaces not available, using basic network detection")
-    NETIFACES_AVAILABLE = False
-
+class SimpleHTTPClient:
+    """A simple HTTP client that works with PyInstaller"""
+    
+    @staticmethod
+    def get(url, timeout=30):
+        """Simple HTTP GET request"""
+        try:
+            if SSL_AVAILABLE:
+                # Use urllib with SSL disabled
+                req = urllib.request.Request(url)
+                response = urllib.request.urlopen(req, timeout=timeout)
+                return response.read().decode('utf-8')
+            else:
+                # Fallback: try without SSL for http URLs
+                if url.startswith('https://'):
+                    # Try http instead
+                    http_url = url.replace('https://', 'http://', 1)
+                    print(f"⚠️  SSL not available, trying HTTP: {http_url}")
+                    req = urllib.request.Request(http_url)
+                    response = urllib.request.urlopen(req, timeout=timeout)
+                    return response.read().decode('utf-8')
+                else:
+                    req = urllib.request.Request(url)
+                    response = urllib.request.urlopen(req, timeout=timeout)
+                    return response.read().decode('utf-8')
+        except Exception as e:
+            print(f"❌ HTTP request failed for {url}: {e}")
+            return None
+    
+    @staticmethod
+    def get_json(url, timeout=30):
+        """Get JSON data from URL"""
+        response_text = SimpleHTTPClient.get(url, timeout)
+        if response_text:
+            try:
+                return json.loads(response_text)
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON decode error for {url}: {e}")
+        return None
 class DataManager:
     """Manages data storage with EXE directory fallback to ProgramData"""
     
@@ -140,47 +166,6 @@ class DataManager:
         except Exception as e:
             print(f"❌ Error loading {filename}: {e}")
             return default
-
-class SimpleHTTPClient:
-    """A simple HTTP client that works with PyInstaller"""
-    
-    @staticmethod
-    def get(url, timeout=30):
-        """Simple HTTP GET request"""
-        try:
-            if SSL_AVAILABLE:
-                # Use urllib with SSL disabled
-                req = urllib.request.Request(url)
-                response = urllib.request.urlopen(req, timeout=timeout)
-                return response.read().decode('utf-8')
-            else:
-                # Fallback: try without SSL for http URLs
-                if url.startswith('https://'):
-                    # Try http instead
-                    http_url = url.replace('https://', 'http://', 1)
-                    print(f"⚠️  SSL not available, trying HTTP: {http_url}")
-                    req = urllib.request.Request(http_url)
-                    response = urllib.request.urlopen(req, timeout=timeout)
-                    return response.read().decode('utf-8')
-                else:
-                    req = urllib.request.Request(url)
-                    response = urllib.request.urlopen(req, timeout=timeout)
-                    return response.read().decode('utf-8')
-        except Exception as e:
-            print(f"❌ HTTP request failed for {url}: {e}")
-            return None
-    
-    @staticmethod
-    def get_json(url, timeout=30):
-        """Get JSON data from URL"""
-        response_text = SimpleHTTPClient.get(url, timeout)
-        if response_text:
-            try:
-                return json.loads(response_text)
-            except json.JSONDecodeError as e:
-                print(f"❌ JSON decode error for {url}: {e}")
-        return None
-
 class Block:
     def __init__(self, index: int, previous_hash: str, timestamp: float, transactions: List[Dict], nonce: int = 0):
         self.index = index
@@ -199,15 +184,28 @@ class Block:
         block_data = f"{self.index}{self.previous_hash}{self.timestamp}{json.dumps(self.transactions)}{self.nonce}"
         return hashlib.sha256(block_data.encode()).hexdigest()
 
+
     def mine_block(self, difficulty: int, progress_callback=None):
-        """Mine the block with real-time progress tracking"""
+        """Mine the block with real-time progress tracking and rainbow colors"""
         target = "0" * difficulty
         start_time = time.time()
         hashes_tried = 0
         last_update = start_time
+        last_hash_count = 0
+        hash_rates = []
         
+        # Clear screen and show initial header
+        self._clear_mining_display()
         print(f"🎯 Mining Target: {target}")
         print("⛏️  Starting mining operation...")
+        print("-" * 60)
+        
+        # Initial empty progress display (we'll update these lines)
+        progress_lines = 8  # Number of lines we'll be updating
+        for _ in range(progress_lines):
+            print()  # Reserve lines for progress display
+        
+        line_positions = {}  # Track where each line starts
         
         while self.hash[:difficulty] != target:
             self.nonce += 1
@@ -215,27 +213,218 @@ class Block:
             self.hash = self.calculate_hash()
             
             current_time = time.time()
-            if current_time - last_update >= 1.0:  # Update every second
+            time_since_update = current_time - last_update
+            
+            if time_since_update >= 0.3:  # More frequent updates for smoother display
                 elapsed = current_time - start_time
-                self.hash_rate = hashes_tried / elapsed if elapsed > 0 else 0
+                current_hash_rate = (hashes_tried - last_hash_count) / time_since_update
+                hash_rates.append(current_hash_rate)
+                avg_hash_rate = sum(hash_rates) / len(hash_rates) if hash_rates else 0
+                
+                # Calculate progress (estimated)
+                hashes_per_target = 16 ** difficulty
+                progress = min(self.nonce / hashes_per_target, 0.99) if hashes_per_target > 0 else 0
+                eta = (hashes_per_target - self.nonce) / avg_hash_rate if avg_hash_rate > 0 else 0
+                
+                # Update progress display
+                self._update_mining_display(
+                    hashes_tried, avg_hash_rate, self.hash, elapsed, 
+                    difficulty, target, progress, eta, progress_lines
+                )
                 
                 if progress_callback:
                     progress_callback({
                         'hashes': hashes_tried,
-                        'hash_rate': self.hash_rate,
+                        'hash_rate': avg_hash_rate,
                         'current_hash': self.hash,
-                        'elapsed_time': elapsed
+                        'elapsed_time': elapsed,
+                        'nonce': self.nonce,
+                        'progress': progress,
+                        'eta': eta
                     })
                 
                 last_update = current_time
-                hashes_tried = 0
+                last_hash_count = hashes_tried
         
+        # Mining completed
         end_time = time.time()
         self.mining_time = end_time - start_time
         self.hash_rate = self.nonce / self.mining_time if self.mining_time > 0 else 0
         
+        # Final display with celebration
+        self._display_mining_complete(self.mining_time, self.nonce, self.hash_rate, self.hash)
+        
         return True
 
+    def _clear_mining_display(self):
+        """Clear the mining display area"""
+        print("\033[2J\033[H")  # Clear screen and move to top
+
+    def _update_mining_display(self, hashes_tried, hash_rate, current_hash, elapsed_time, 
+                            difficulty, target, progress, eta, total_lines):
+        """Update the mining progress display with rainbow colors"""
+        # Move cursor to the beginning of the progress display area
+        print(f"\033[{total_lines + 3}F")  # +3 for header lines
+        
+        # ROYGBIV rainbow colors 🌈
+        colors = [
+            '\033[91m',  # Red
+            '\033[93m',  # Yellow  
+            '\033[92m',  # Green
+            '\033[96m',  # Cyan
+            '\033[94m',  # Blue
+            '\033[95m',  # Magenta
+            '\033[97m',  # White
+        ]
+        reset = '\033[0m'
+        bold = '\033[1m'
+        
+        # Get color based on progress (cycle through rainbow)
+        color_index = int(progress * len(colors)) % len(colors)
+        current_color = colors[color_index]
+        
+        progress_bar = self._create_rainbow_progress_bar(progress, 30)
+        hash_rate_str = self._format_hash_rate(hash_rate)
+        
+        # Display each line with proper clearing
+        lines = [
+            f"{bold}{current_color}⛏️  Mining Block #{self.index} | Difficulty: {difficulty}{reset}",
+            f"{colors[1]}🎯 Target: {target} {reset}",
+            f"{colors[2]}📊 Progress: {progress_bar} {progress:.1%}{reset}",
+            f"{colors[3]}⚡ Hash Rate: {hash_rate_str}{reset}",
+            f"{colors[4]}🔢 Hashes: {hashes_tried:,} | Nonce: {self.nonce:,}{reset}",
+            f"{colors[5]}⏱️  Elapsed: {elapsed_time:.1f}s | ETA: {eta:.1f}s{reset}",
+            f"{colors[6]}🔍 Current Hash: {current_hash[:32]}...{reset}",
+            f"{colors[0]}📈 Matching: {current_hash[:difficulty]}{'🎯' if current_hash[:difficulty] == target else '...'}{reset}"
+        ]
+        
+        # Print all lines, clearing any leftover text from previous update
+        for i, line in enumerate(lines):
+            # Clear the line first, then print new content
+            print("\033[K" + line)  # \033[K clears from cursor to end of line
+            
+            # If we have fewer lines than reserved, clear the extra ones
+            if i == len(lines) - 1 and len(lines) < total_lines:
+                for j in range(len(lines), total_lines):
+                    print("\033[K")  # Clear remaining lines
+        
+        # Ensure we flush the output
+        import sys
+        sys.stdout.flush()
+
+    def _create_rainbow_progress_bar(self, progress, width=30):
+        """Create a simpler rainbow-colored progress bar"""
+        filled = int(width * progress)
+        empty = width - filled
+        
+        # Use a single color that changes with progress
+        colors = ['\033[91m', '\033[93m', '\033[92m', '\033[96m', '\033[94m', '\033[95m']
+        reset = '\033[0m'
+        
+        # Pick color based on progress
+        color_index = int(progress * len(colors)) % len(colors)
+        color = colors[color_index]
+        
+        return f"{color}[{'█' * filled}{'░' * empty}]{reset}"
+
+    def _format_hash_rate(self, hash_rate):
+        """Format hash rate with colors"""
+        if hash_rate >= 1_000_000:
+            color = '\033[95m'  # Magenta for MH/s
+            return f"{color}{hash_rate/1_000_000:.2f} MH/s\033[0m"
+        elif hash_rate >= 1_000:
+            color = '\033[96m'  # Cyan for kH/s
+            return f"{color}{hash_rate/1_000:.2f} kH/s\033[0m"
+        else:
+            color = '\033[92m'  # Green for H/s
+            return f"{color}{hash_rate:.2f} H/s\033[0m"
+
+    def _display_mining_complete(self, mining_time, total_nonce, final_hash_rate, final_hash):
+        """Display mining completion with celebration"""
+        # Clear the display area
+        print("\033[2J\033[H")  # Clear screen
+        
+        # Rainbow celebration message
+        colors = ['\033[91m', '\033[93m', '\033[92m', '\033[96m', '\033[94m', '\033[95m']
+        reset = '\033[0m'
+        bold = '\033[1m'
+        
+        print("=" * 70)
+        for i, char in enumerate("✅ BLOCK MINED SUCCESSFULLY! 🎉"):
+            color = colors[i % len(colors)]
+            print(f"{bold}{color}{char}{reset}", end="")
+        print()
+        print("=" * 70)
+        
+        stats = [
+            f"📦 Block #{self.index} mined in {mining_time:.2f} seconds",
+            f"⚡ Final Hash Rate: {self._format_hash_rate(final_hash_rate)}",
+            f"🔢 Total Nonce Attempts: {total_nonce:,}",
+            f"🏁 Final Hash: {final_hash}",
+            f"📏 Hash Length: {len(final_hash)} characters",
+            f"🎯 Target Matched: {final_hash[:self._get_difficulty_from_hash(final_hash)]}"
+        ]
+        
+        for i, stat in enumerate(stats):
+            color = colors[i % len(colors)]
+            print(f"{color}{stat}{reset}")
+        
+        print("=" * 70)
+        
+        # Fun celebration ASCII art
+        celebration_art = [
+            "⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐恭喜⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐",
+        ]
+        
+        for line in celebration_art:
+            print(f"{colors[2]}{line}{reset}")
+
+    def _create_progress_bar(self, progress, width=20):
+        """Create a visual progress bar"""
+        filled = int(width * progress)
+        empty = width - filled
+        return f"[{'█' * filled}{'░' * empty}]"
+
+    def _get_difficulty_from_hash(self, hash_str):
+        """Calculate difficulty by counting leading zeros"""
+        difficulty = 0
+        for char in hash_str:
+            if char == '0':
+                difficulty += 1
+            else:
+                break
+        return difficulty
+    def mine_block_with_animation(self, difficulty: int):
+        """Mine block with animated progress display"""
+        import sys
+        import threading
+        
+        # Animation characters
+        animation_chars = ["⛏️ ", "🔨", "⚒️ ", "🛠️ "]
+        animation_index = 0
+        stop_animation = False
+        
+        def animate():
+            nonlocal animation_index
+            while not stop_animation:
+                print(f"\r{animation_chars[animation_index]} Mining...", end="", flush=True)
+                animation_index = (animation_index + 1) % len(animation_chars)
+                time.sleep(0.3)
+        
+        # Start animation thread
+        animation_thread = threading.Thread(target=animate, daemon=True)
+        animation_thread.start()
+        
+        try:
+            result = self.mine_block(difficulty)
+            stop_animation = True
+            time.sleep(0.4)  # Let animation finish
+            print("\r" + " " * 50 + "\r", end="")  # Clear animation line
+            return result
+        except Exception as e:
+            stop_animation = True
+            print(f"\r❌ Mining failed: {e}")
+            return False
 class Blockchain:
     def __init__(self, node_address=None):
         # Use ProgramData for all file storage
@@ -246,7 +435,7 @@ class Blockchain:
         # Multi-difficulty mining configuration
         self.difficulty = 6
         self.pending_transactions = []
-        self.base_mining_reward = 50
+        self.base_mining_reward = 10
         self.total_blocks_mined = 0
         self.total_mining_time = 0
         self.is_mining = False
@@ -317,7 +506,7 @@ class Blockchain:
         self.sync_all()
 
     def save_chain(self):
-        """Save blockchain to storage"""
+        """Save blockchain to storage - FIXED WITH DEBUG"""
         try:
             chain_data = []
             for block in self.chain:
@@ -325,16 +514,26 @@ class Blockchain:
                     "index": block.index,
                     "previous_hash": block.previous_hash,
                     "timestamp": block.timestamp,
-                    "transactions": block.transactions,
+                    "transactions": block.transactions,  # ✅ Make sure this includes ALL transactions
                     "nonce": block.nonce,
                     "hash": block.hash,
                     "mining_time": block.mining_time
                 })
             
-            DataManager.save_json(self.chain_file, chain_data)
-            print(f"💾 Blockchain saved with {len(self.chain)} blocks")
+            print(f"💾 Attempting to save {len(chain_data)} blocks to {self.chain_file}")
+            
+            success = DataManager.save_json(self.chain_file, chain_data)
+            if success:
+                print(f"✅ Blockchain saved successfully with {len(chain_data)} blocks")
+            else:
+                print("❌ Blockchain save failed!")
+                
+            return success
         except Exception as e:
-            print(f"❌ Error saving blockchain: {e}")
+            print(f"💥 CRITICAL: Error saving blockchain: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
     def generate_node_address(self):
         """Generate a unique node address"""
@@ -558,7 +757,7 @@ class Blockchain:
         return successful_broadcasts
 
     def download_from_web(self, resource_type="blockchain"):
-        """Download blockchain or mempool from web server using simple HTTP client"""
+        """Download blockchain or Genesis GTX data from web server using simple HTTP client"""
         base_url = "https://bank.linglin.art/"
         url = f"{base_url}{resource_type}"
         
@@ -581,8 +780,7 @@ class Blockchain:
             
             if data is not None:
                 if resource_type == "blockchain":
-                    if resource_type == "blockchain":
-                        new_chain = []
+                    new_chain = []
                     for block_data in data:
                         block = Block(
                             block_data["index"],
@@ -615,31 +813,23 @@ class Blockchain:
                                 })
                             DataManager.save_json(self.chain_file, chain_data)
                         print(f"✅ Downloaded and validated blockchain with {len(data)} blocks")
+                        
+                        # Try to extract Genesis GTX transactions, but don't fail if it errors
+                        try:
+                            genesis_gtx_count = self.extract_genesis_gtx_from_chain()
+                            print(f"🔍 Found {genesis_gtx_count} Genesis GTX transactions in downloaded blockchain")
+                        except Exception as e:
+                            print(f"⚠️  Could not extract Genesis GTX transactions: {e}")
+                            genesis_gtx_count = 0
+                        
                         return True
                     else:
                         print("❌ Downloaded blockchain failed validation")
-                    
-                elif resource_type == "mempool":
-                    print(f"🔍 Mempool data type: {type(data)}")
-                    
-                    if isinstance(data, list):
-                        self.pending_transactions = data
-                        self.save_mempool()
-                        print(f"✅ Downloaded mempool with {len(data)} transactions")
-                        return True
-                    elif isinstance(data, dict):
-                        # Maybe the mempool is wrapped in a dictionary
-                        if 'transactions' in data:
-                            self.pending_transactions = data['transactions']
-                            self.save_mempool()
-                            print(f"✅ Downloaded mempool with {len(data['transactions'])} transactions")
-                            return True
-                        else:
-                            print(f"❌ Mempool data dict doesn't contain 'transactions' key: {data.keys()}")
-                            return False
-                    else:
-                        print(f"❌ Mempool data is unexpected type: {type(data)}")
                         return False
+                
+                elif resource_type == "mempool":
+                    print("⚠️  Mempool download is deprecated - Genesis GTX transactions are stored in blockchain")
+                    return self.handle_mempool_download(data)
             else:
                 print(f"❌ No data received from {url}")
                 return False
@@ -649,6 +839,94 @@ class Blockchain:
             import traceback
             traceback.print_exc()
             return False
+
+    def handle_mempool_download(self, data):
+        """Handle mempool download data extraction"""
+        print("🔍 Extracting Genesis GTX transactions from downloaded data...")
+        
+        genesis_gtx_transactions = []
+        if isinstance(data, list):
+            # If it's a list of transactions, filter for Genesis GTX
+            for tx in data:
+                if self.is_genesis_gtx_transaction(tx):
+                    genesis_gtx_transactions.append(tx)
+        elif isinstance(data, dict) and 'transactions' in data:
+            # If it's wrapped in a dict with transactions key
+            for tx in data['transactions']:
+                if self.is_genesis_gtx_transaction(tx):
+                    genesis_gtx_transactions.append(tx)
+        
+        if genesis_gtx_transactions:
+            print(f"✅ Found {len(genesis_gtx_transactions)} Genesis GTX transactions")
+            # Add to pending transactions for mining
+            added_count = 0
+            for tx in genesis_gtx_transactions:
+                try:
+                    if self.add_transaction(tx):
+                        added_count += 1
+                except Exception as e:
+                    print(f"❌ Error adding transaction: {e}")
+                    continue
+            print(f"📥 Added {added_count} Genesis GTX transactions to pending pool")
+            return added_count > 0
+        else:
+            print("❌ No Genesis GTX transactions found in downloaded data")
+            return False
+
+    def is_genesis_gtx_transaction(self, tx):
+        """Check if a transaction is a Genesis GTX transaction"""
+        if not isinstance(tx, dict):
+            return False
+        
+        # Check for various indicators of Genesis GTX transactions
+        if tx.get("type") in ["genesis_gtx", "GTX_Genesis", "genesis"]:
+            return True
+        
+        if tx.get("category") == "Genesis GTX":
+            return True
+        
+        # Check for serial number and denomination (common in bill-based systems)
+        if tx.get("serial_number") and tx.get("denomination"):
+            return True
+        
+        # Check for specific Genesis GTX patterns
+        if "genesis" in str(tx.get("type", "")).lower() or "gtx" in str(tx.get("type", "")).lower():
+            return True
+        
+        return False
+
+    def extract_genesis_gtx_from_chain(self):
+        """Extract Genesis GTX transactions from the current blockchain and add to pending pool"""
+        genesis_gtx_count = 0
+        
+        for block in self.chain:
+            for tx in block.transactions:
+                if self.is_genesis_gtx_transaction(tx):
+                    # Make sure the transaction has required fields
+                    if not isinstance(tx, dict):
+                        continue
+                        
+                    # Create a clean copy to avoid modifying the original
+                    transaction = tx.copy()
+                    
+                    # Add basic fields if missing
+                    if "timestamp" not in transaction:
+                        transaction["timestamp"] = time.time()
+                    
+                    # Ensure it has a type identifier
+                    if "type" not in transaction:
+                        transaction["type"] = "genesis_gtx"
+                    
+                    # Add to pending transactions if not already there
+                    try:
+                        if self.add_transaction(transaction):
+                            genesis_gtx_count += 1
+                    except Exception as e:
+                        print(f"❌ Error adding Genesis GTX transaction: {e}")
+                        continue
+        
+        print(f"🔍 Extracted {genesis_gtx_count} Genesis GTX transactions from blockchain")
+        return genesis_gtx_count
 
     def sync_all(self):
         """One command to sync everything"""
@@ -678,77 +956,77 @@ class Blockchain:
         print("✅ Complete synchronization finished")
 
     def download_blockchain(self, peer_address: str = None):
-        """Download blockchain from a peer"""
+        """Download blockchain from a peer, fall back to web server if peers fail"""
         peers_to_try = [peer_address] if peer_address else list(self.peers)
         
         print(f"🔍 Current peers: {list(self.peers)}")
         print(f"🔍 Peers to try: {peers_to_try}")
         
-        if not peers_to_try:
-            print("❌ No peers available to download blockchain from")
-            return False
-        
-        for peer in peers_to_try:
-            try:
-                print(f"📥 Attempting to download blockchain from {peer}...")
-                
-                ping_response = self.send_to_peer(peer, {"action": "ping"}, timeout=5)
-                if not ping_response or ping_response.get("status") != "success":
-                    print(f"❌ Peer {peer} is not responding to ping")
-                    continue
+        # First try peers
+        if peers_to_try:
+            for peer in peers_to_try:
+                try:
+                    print(f"📥 Attempting to download blockchain from {peer}...")
                     
-                print(f"✅ Peer {peer} is reachable, requesting blockchain...")
-                
-                response = self.send_to_peer(peer, {"action": "get_blockchain"}, timeout=30)
-                
-                if not response:
-                    print(f"❌ No response from {peer}")
-                    continue
-                    
-                if response.get("status") == "success":
-                    chain_data = response.get("blockchain", [])
-                    total_blocks = response.get("total_blocks", 0)
-                    
-                    print(f"🔍 Received {len(chain_data)} blocks, I have {len(self.chain)} blocks")
-                    
-                    if len(chain_data) > len(self.chain):
-                        print(f"✅ Downloaded blockchain with {total_blocks} blocks from {peer}")
+                    ping_response = self.send_to_peer(peer, {"action": "ping"}, timeout=5)
+                    if not ping_response or ping_response.get("status") != "success":
+                        print(f"❌ Peer {peer} is not responding to ping")
+                        continue
                         
-                        new_chain = []
-                        for block_data in chain_data:
-                            block = Block(
-                                block_data["index"],
-                                block_data["previous_hash"],
-                                block_data["timestamp"],
-                                block_data["transactions"],
-                                block_data.get("nonce", 0)
-                            )
-                            block.hash = block_data["hash"]
-                            block.mining_time = block_data.get("mining_time", 0)
-                            new_chain.append(block)
+                    print(f"✅ Peer {peer} is reachable, requesting blockchain...")
+                    
+                    response = self.send_to_peer(peer, {"action": "get_blockchain"}, timeout=30)
+                    
+                    if not response:
+                        print(f"❌ No response from {peer}")
+                        continue
                         
-                        if self.validate_chain(new_chain):
-                            self.chain = new_chain
-                            self.save_chain()
-                            print(f"✅ Blockchain updated to {len(self.chain)} blocks")
-                            return True
+                    if response.get("status") == "success":
+                        chain_data = response.get("blockchain", [])
+                        total_blocks = response.get("total_blocks", 0)
+                        
+                        print(f"🔍 Received {len(chain_data)} blocks, I have {len(self.chain)} blocks")
+                        
+                        if len(chain_data) > len(self.chain):
+                            print(f"✅ Downloaded blockchain with {total_blocks} blocks from {peer}")
+                            
+                            new_chain = []
+                            for block_data in chain_data:
+                                block = Block(
+                                    block_data["index"],
+                                    block_data["previous_hash"],
+                                    block_data["timestamp"],
+                                    block_data["transactions"],
+                                    block_data.get("nonce", 0)
+                                )
+                                block.hash = block_data["hash"]
+                                block.mining_time = block_data.get("mining_time", 0)
+                                new_chain.append(block)
+                            
+                            if self.validate_chain(new_chain):
+                                self.chain = new_chain
+                                self.save_chain()
+                                print(f"✅ Blockchain updated to {len(self.chain)} blocks")
+                                return True
+                            else:
+                                print("❌ Downloaded blockchain failed validation")
                         else:
-                            print("❌ Downloaded blockchain failed validation")
+                            print("ℹ️  Peer has same or shorter chain, keeping current blockchain")
+                            return True  # Not an error, just no update needed
                     else:
-                        print("ℹ️  Peer has same or shorter chain, keeping current blockchain")
-                else:
-                    error_msg = response.get("message", "Unknown error")
-                    print(f"❌ Failed to download blockchain from {peer}: {error_msg}")
-                    
-            except socket.timeout:
-                print(f"❌ Timeout connecting to {peer}")
-            except ConnectionRefusedError:
-                print(f"❌ Connection refused by {peer}")
-            except Exception as e:
-                print(f"❌ Error downloading blockchain from {peer}: {e}")
+                        error_msg = response.get("message", "Unknown error")
+                        print(f"❌ Failed to download blockchain from {peer}: {error_msg}")
+                        
+                except socket.timeout:
+                    print(f"❌ Timeout connecting to {peer}")
+                except ConnectionRefusedError:
+                    print(f"❌ Connection refused by {peer}")
+                except Exception as e:
+                    print(f"❌ Error downloading blockchain from {peer}: {e}")
         
-        print("❌ Failed to download blockchain from all peers")
-        return False
+        # If no peers available or all peers failed, try web server
+        print("🌐 No peers available or all failed, trying web server...")
+        return self.download_from_web("blockchain")
 
     def save_mempool(self):
         """Save pending transactions to storage"""
@@ -791,7 +1069,13 @@ class Blockchain:
         # If no peers available or all peers failed, try web fallback
         print("🌐 No peers available or all failed, trying web fallback...")
         return self.download_mempool_from_web()
-
+    def is_transaction_in_blockchain(self, transaction):
+        """Check if a transaction already exists in the blockchain"""
+        for block in self.chain:
+            for block_tx in block.transactions:
+                if self.transactions_equal(block_tx, transaction):
+                    return True
+        return False
     def download_mempool_from_web(self):
         """Download mempool from https://bank.linglin.art/mempool"""
         web_url = "https://bank.linglin.art/mempool"
@@ -931,57 +1215,319 @@ class Blockchain:
         
         self.user_limits[user_id][denomination] = self.user_limits[user_id].get(denomination, 0) + 1
 
-    def add_transaction(self, transaction: Dict):
-        """Add transaction to mempool with anti-spam checks"""
-        
-        # Extract user_id and denomination
-        user_id = transaction.get("user_id", "unknown")
-        denomination = transaction.get("denomination", "1")
-        
-        # Anti-spam: Check user limits
-        if not self.check_user_limits(user_id, denomination):
-            print(f"❌ User {user_id} exceeded limit for denomination {denomination}")
+    def validate_transaction(self, transaction):
+        """Validate a transaction before adding it to the pool"""
+        try:
+            # Basic validation
+            if not isinstance(transaction, dict):
+                return False
+                
+            # Check for required fields based on transaction type
+            if transaction.get("type") in ["genesis_gtx", "GTX_Genesis", "genesis"]:
+                # Genesis transactions need serial number and denomination
+                if not transaction.get("serial_number") or not transaction.get("denomination"):
+                    return False
+                    
+            # Regular transactions need sender, recipient, amount
+            elif transaction.get("sender") and transaction.get("recipient"):
+                if not isinstance(transaction.get("amount"), (int, float)) or transaction.get("amount") <= 0:
+                    return False
+                    
+            # Check timestamp
+            if not transaction.get("timestamp"):
+                transaction["timestamp"] = time.time()
+                
+            return True
+            
+        except Exception as e:
+            print(f"❌ Transaction validation error: {e}")
             return False
+    def get_transaction_status(self, transaction_identifier):
+        """Check transaction status (confirmed/pending) - CALL THIS FROM NODE"""
+        # Check blockchain (confirmed transactions)
+        for block_index, block in enumerate(self.chain):
+            for tx in block.transactions:
+                if self._transaction_matches_identifier(tx, transaction_identifier):
+                    return {
+                        "status": "confirmed",
+                        "block_height": block.index,
+                        "confirmations": len(self.chain) - block.index,
+                        "timestamp": block.timestamp,
+                        "transaction": tx
+                    }
         
-        # Check if this transaction has already been mined in the blockchain
-        if self.is_transaction_mined(transaction):
-            print(f"⏭️  Transaction already mined, skipping: {transaction.get('signature', 'unknown')[:16]}...")
-            return False
+        # Check pending transactions
+        for tx in self.pending_transactions:
+            if self._transaction_matches_identifier(tx, transaction_identifier):
+                return {
+                    "status": "pending", 
+                    "confirmations": 0,
+                    "timestamp": tx.get("timestamp"),
+                    "transaction": tx
+                }
         
-        # Check if transaction already exists in mempool
-        tx_signature = transaction.get("signature")
-        if any(t.get("signature") == tx_signature for t in self.pending_transactions):
-            print(f"⏭️  Transaction already in mempool: {tx_signature[:16]}...")
-            return False
-        
-        # Add mining requirements based on denomination
-        requirements = self.difficulty_requirements.get(denomination, {"difficulty": 0, "min_time": 0.1, "max_attempts": 10})
-        transaction["mining_requirements"] = {
-            "required_difficulty": requirements["difficulty"],
-            "minimum_time_seconds": requirements["min_time"],
-            "max_mining_attempts": requirements["max_attempts"],
-            "mining_attempts": 0
-        }
-        
-        self.pending_transactions.append(transaction)
-        self.save_mempool()
-        
-        # Increment user limit
-        self.increment_user_limit(user_id, denomination)
-        
-        # Broadcast the new transaction to peers
-        tx_data = {
-            "action": "new_transaction",
-            "transaction": transaction
-        }
-        self.broadcast(tx_data)
-        
-        print(f"✅ Transaction added to mempool: {tx_signature[:16]}...")
-        print(f"   💰 Denomination: ${denomination}")
-        print(f"   ⛏️  Required Difficulty: {requirements['difficulty']}")
-        print(f"   ⏱️  Minimum Time: {requirements['min_time']}s")
-        return True
+        return {"status": "not_found", "confirmations": 0}
 
+    def _transaction_matches_identifier(self, tx, identifier):
+        """Check if transaction matches various identifier types"""
+        if not isinstance(tx, dict):
+            return False
+            
+        # Match by transaction hash
+        if tx.get("hash") == identifier:
+            return True
+            
+        # Match by transaction ID
+        if tx.get("id") == identifier:
+            return True
+            
+        # Match by serial number (for bills)
+        if tx.get("serial_number") == identifier:
+            return True
+            
+        # Match by custom identifier
+        if tx.get("transaction_id") == identifier:
+            return True
+            
+        # Match by sender/recipient/amount combination
+        if isinstance(identifier, dict):
+            return (tx.get("sender") == identifier.get("sender") and
+                    tx.get("recipient") == identifier.get("recipient") and
+                    tx.get("amount") == identifier.get("amount"))
+        
+        return False
+
+    def get_address_transactions(self, address):
+        """Get all transactions for an address - CALL THIS FROM NODE"""
+        transactions = []
+        
+        # Confirmed transactions from blockchain
+        for block in self.chain:
+            for tx in block.transactions:
+                if (tx.get("sender") == address or tx.get("recipient") == address):
+                    transactions.append({
+                        **tx,
+                        "status": "confirmed",
+                        "block_height": block.index,
+                        "confirmations": len(self.chain) - block.index,
+                        "timestamp": tx.get("timestamp", block.timestamp)
+                    })
+        
+        # Pending transactions
+        for tx in self.pending_transactions:
+            if (tx.get("sender") == address or tx.get("recipient") == address):
+                transactions.append({
+                    **tx,
+                    "status": "pending",
+                    "block_height": None,
+                    "confirmations": 0
+                })
+        
+        # Sort by timestamp (newest first)
+        transactions.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
+        
+        return transactions
+    def add_transaction(self, transaction):
+        """Add a transaction to the pending pool with validation"""
+        try:
+            # Validate the transaction first
+            if not self.validate_transaction(transaction):
+                print("❌ Transaction validation failed")
+                return False
+                
+            # Check for duplicates in pending transactions
+            for pending_tx in self.pending_transactions:
+                if self.transactions_equal(pending_tx, transaction):
+                    print("⚠️  Transaction already in pending pool")
+                    return False
+                    
+            # Check for duplicates in blockchain
+            for block in self.chain:
+                for block_tx in block.transactions:
+                    if self.transactions_equal(block_tx, transaction):
+                        print("⚠️  Transaction already exists in blockchain")
+                        return False
+                        
+            # Add to pending transactions
+            self.pending_transactions.append(transaction)
+            print(f"✅ Transaction added to pending pool (Total: {len(self.pending_transactions)})")
+            
+            # Save mempool
+            self.save_mempool()
+            
+            # Broadcast to peers
+            self.broadcast({
+                "action": "new_transaction",
+                "transaction": transaction
+            })
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error adding transaction: {e}")
+            return False
+
+    def transactions_equal(self, tx1, tx2):
+        """Check if two transactions are essentially the same"""
+        try:
+            # Compare by serial number for bills
+            if tx1.get("serial_number") and tx2.get("serial_number"):
+                return tx1["serial_number"] == tx2["serial_number"]
+                
+            # Compare by hash if available
+            if tx1.get("hash") and tx2.get("hash"):
+                return tx1["hash"] == tx2["hash"]
+                
+            # Compare key fields for regular transactions
+            if (tx1.get("sender") and tx2.get("sender") and 
+                tx1.get("recipient") and tx2.get("recipient") and 
+                tx1.get("amount") and tx2.get("amount")):
+                return (tx1["sender"] == tx2["sender"] and 
+                    tx1["recipient"] == tx2["recipient"] and 
+                    tx1["amount"] == tx2["amount"] and
+                    tx1.get("timestamp", 0) == tx2.get("timestamp", 0))
+                    
+            # Generic comparison as fallback
+            return tx1 == tx2
+            
+        except Exception as e:
+            print(f"❌ Error comparing transactions: {e}")
+            return False
+    def get_transaction_status(self, transaction_identifier):
+        """Check transaction status (confirmed/pending)"""
+        print(f"🔍 Searching for transaction: {transaction_identifier}")
+        
+        # Check blockchain (confirmed transactions)
+        for block_index, block in enumerate(self.chain):
+            for tx_index, tx in enumerate(block.transactions):
+                if self._transaction_matches_identifier(tx, transaction_identifier):
+                    confirmations = len(self.chain) - block_index
+                    return {
+                        "status": "confirmed",
+                        "block_height": block_index,
+                        "confirmations": confirmations,
+                        "timestamp": block.timestamp,
+                        "transaction_index": tx_index,
+                        "transaction": self._sanitize_transaction(tx)  # Remove sensitive data if needed
+                    }
+        
+        # Check pending transactions
+        for tx_index, tx in enumerate(self.pending_transactions):
+            if self._transaction_matches_identifier(tx, transaction_identifier):
+                return {
+                    "status": "pending", 
+                    "confirmations": 0,
+                    "timestamp": tx.get("timestamp"),
+                    "transaction_index": tx_index,
+                    "transaction": self._sanitize_transaction(tx)
+                }
+        
+        return {"status": "not_found", "confirmations": 0}
+
+    def _transaction_matches_identifier(self, tx, identifier):
+        """Check if transaction matches various identifier types"""
+        if not isinstance(tx, dict):
+            return False
+            
+        # Match by transaction hash
+        if tx.get("hash") and tx["hash"] == identifier:
+            return True
+            
+        # Match by transaction ID
+        if tx.get("id") and tx["id"] == identifier:
+            return True
+            
+        # Match by serial number (for bills)
+        if tx.get("serial_number") and tx["serial_number"] == identifier:
+            return True
+            
+        # Match by signature or partial match
+        if isinstance(identifier, str) and identifier in str(tx):
+            return True
+            
+        return False
+
+    def _sanitize_transaction(self, tx):
+        """Remove sensitive data from transaction for display"""
+        if not isinstance(tx, dict):
+            return tx
+            
+        # Return a safe copy (you can exclude certain fields if needed)
+        return tx.copy()
+
+    def get_address_transactions(self, address):
+        """Get all transactions for a specific address"""
+        transactions = []
+        
+        # Check if address format is valid
+        if not address or not isinstance(address, str):
+            return {"error": "Invalid address format"}
+        
+        print(f"🔍 Searching transactions for address: {address}")
+        
+        # Confirmed transactions from blockchain
+        for block_index, block in enumerate(self.chain):
+            for tx in block.transactions:
+                if (tx.get("sender") == address or tx.get("recipient") == address):
+                    transactions.append({
+                        **tx,
+                        "status": "confirmed",
+                        "block_height": block_index,
+                        "confirmations": len(self.chain) - block_index,
+                        "timestamp": tx.get("timestamp", block.timestamp)
+                    })
+        
+        # Pending transactions
+        for tx in self.pending_transactions:
+            if (tx.get("sender") == address or tx.get("recipient") == address):
+                transactions.append({
+                    **tx,
+                    "status": "pending",
+                    "block_height": None,
+                    "confirmations": 0
+                })
+        
+        # Sort by timestamp (newest first)
+        transactions.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
+        
+        return transactions
+
+    def get_balance(self, address):
+        """Get balance for a specific address"""
+        if not address or not isinstance(address, str):
+            return {"error": "Invalid address format"}
+        
+        confirmed_balance = 0.0
+        pending_balance = 0.0
+        
+        # Calculate from blockchain (confirmed transactions)
+        for block in self.chain:
+            for tx in block.transactions:
+                # Received funds
+                if tx.get("recipient") == address:
+                    confirmed_balance += tx.get("amount", 0)
+                # Sent funds
+                if tx.get("sender") == address:
+                    confirmed_balance -= tx.get("amount", 0)
+        
+        # Calculate from pending transactions (unconfirmed)
+        pending_balance = confirmed_balance  # Start with confirmed balance
+        
+        for tx in self.pending_transactions:
+            # Pending received funds
+            if tx.get("recipient") == address:
+                pending_balance += tx.get("amount", 0)
+            # Pending sent funds
+            if tx.get("sender") == address:
+                pending_balance -= tx.get("amount", 0)
+        
+        return {
+            "address": address,
+            "confirmed_balance": confirmed_balance,
+            "pending_balance": pending_balance,
+            "effective_balance": pending_balance,  # Includes pending
+            "transaction_count": len([tx for tx in self.get_address_transactions(address)])
+        }
     def is_transaction_mined(self, transaction: Dict) -> bool:
         """Check if a transaction has already been mined in the blockchain"""
         tx_signature = transaction.get("signature")
@@ -1018,130 +1564,113 @@ class Blockchain:
         
         return selected_bill, multiplier, actual_reward
 
-    def mine_pending_transactions(self, mining_reward_address: str):
+    def mine_pending_transactions(self, mining_reward_address=None):
+        """Mine pending transactions into a new block"""
         if not self.pending_transactions:
-            print("❌ No transactions to mine!")
-            return False
-        
-        print(f"📦 Preparing block with {len(self.pending_transactions)} transactions...")
-        
-        # Filter transactions by difficulty requirements and attempt limits
-        mineable_transactions = []
-        for tx in self.pending_transactions:
-            requirements = tx.get("mining_requirements", {})
-            attempts = requirements.get("mining_attempts", 0)
-            max_attempts = requirements.get("max_mining_attempts", self.max_mining_attempts)
+            print("⏭️ No pending transactions to mine")
+            return None
             
-            if attempts < max_attempts:
-                mineable_transactions.append(tx)
-            else:
-                print(f"⏭️  Skipping transaction {tx.get('signature', 'unknown')[:16]}... - exceeded max attempts")
+        print(f"⛏️ Mining block with {len(self.pending_transactions)} transactions...")
         
-        if not mineable_transactions:
-            print("❌ No mineable transactions (all exceeded attempt limits)")
-            return False
+        # Create mining reward transaction
+        reward = self.calculate_mining_reward()
+        if mining_reward_address:
+            mining_reward_tx = {
+                "sender": "mining_reward",
+                "recipient": mining_reward_address,
+                "amount": reward,
+                "timestamp": time.time(),
+                "type": "mining_reward"
+            }
+            self.pending_transactions.append(mining_reward_tx)
         
-        def mining_progress(stats):
-            hashes_per_sec = stats['hash_rate']
-            if hashes_per_sec > 1_000_000:
-                hash_rate_str = f"{hashes_per_sec/1_000_000:.2f} MH/s"
-            elif hashes_per_sec > 1_000:
-                hash_rate_str = f"{hashes_per_sec/1_000:.2f} KH/s"
-            else:
-                hash_rate_str = f"{hashes_per_sec:.2f} H/s"
-            
-            self.current_mining_hashes = stats['hashes']
-            self.current_hash_rate = stats['hash_rate']
-            self.current_hash = stats['current_hash']
-            
-            print(f"\r⛏️  Mining: {stats['hashes']:,.0f} hashes | {hash_rate_str} | Current: {stats['current_hash'][:self.difficulty+2]}...", 
-                end="", flush=True)
-
-        # Create the block with mineable transactions
-        block = Block(len(self.chain), self.get_latest_block().hash, time.time(), mineable_transactions.copy())
-        
-        self.is_mining = True
-        print("\n" + "="*60)
-        print("🚀 STARTING MINING OPERATION")
-        print("="*60)
-        print(f"⚙️  Difficulty Level: {self.difficulty}")
-        print(f"💵 Available Bills: {', '.join(self.difficulty_denominations[self.difficulty].keys())}")
-        print(f"📊 Mineable Transactions: {len(mineable_transactions)}/{len(self.pending_transactions)}")
-        print("="*60)
+        # Create and mine the new block
+        previous_hash = self.chain[-1].hash if self.chain else "0"
+        new_block = Block(
+            len(self.chain),
+            previous_hash,
+            time.time(),
+            self.pending_transactions.copy()  # Copy to avoid modification during mining
+        )
         
         start_time = time.time()
-        block.mine_block(self.difficulty, mining_progress)
-        end_time = time.time()
+        print(f"⛏️ Mining block {new_block.index} with difficulty {self.difficulty}...")
         
-        self.is_mining = False
+        # Mine the block
+        new_block.mine_block(self.difficulty)
         
-        self.current_mining_hashes = 0
-        self.current_hash_rate = 0
-        self.current_hash = ""
+        mining_time = time.time() - start_time
+        new_block.mining_time = mining_time
         
-        # Determine bill denomination and create reward transaction
-        bill_denomination, multiplier, actual_reward = self.determine_bill_denomination(block.hash)
-        serial_number = self.generate_serial_number()
-        verification_url = f"{self.verification_base_url}{serial_number}"
+        # Add to chain
+        self.chain.append(new_block)
         
-        # Create reward transaction
-        reward_tx = {
-            "type": "reward",
-            "to": mining_reward_address,
-            "amount": actual_reward,
-            "base_reward": self.base_mining_reward,
-            "denomination": bill_denomination,
-            "multiplier": multiplier,
-            "timestamp": time.time(),
-            "block_height": len(self.chain),  # This will be the new block's height
-            "signature": f"reward_{len(self.chain)}_{hashlib.sha256(mining_reward_address.encode()).hexdigest()[:16]}",
-            "block_hash": block.hash,
-            "difficulty": self.difficulty,
-            "serial_number": serial_number,
-            "verification_url": verification_url
+        # Clear ONLY the transactions that were successfully mined
+        self.pending_transactions = []
+        
+        # Save the updated blockchain
+        self.save_chain()
+        
+        print(f"✅ Block {new_block.index} mined in {mining_time:.2f}s")
+        print(f"📦 Block contains {len(new_block.transactions)} transactions")
+        print(f"💰 Mining reward: {reward} LC")
+        
+        # Broadcast the new block to peers
+        self.broadcast_new_block(new_block)
+        
+        return new_block
+
+    def calculate_mining_reward(self):
+        """Calculate the current mining reward"""
+        # Simple reward scheme - could be more complex
+        base_reward = self.base_mining_reward
+        # Optional: halving based on block height
+        halving_interval = 210000  # Bitcoin-style halving
+        halvings = len(self.chain) // halving_interval
+        return base_reward / (2 ** halvings)
+
+    def broadcast_new_block(self, block):
+        """Broadcast a new block to all peers"""
+        block_data = {
+            "index": block.index,
+            "previous_hash": block.previous_hash,
+            "timestamp": block.timestamp,
+            "transactions": block.transactions,
+            "nonce": block.nonce,
+            "hash": block.hash,
+            "mining_time": block.mining_time
         }
         
-        # ✅ CRITICAL FIX: Add the reward transaction to the block's transactions
-        block.transactions.append(reward_tx)
+        successful_broadcasts = self.broadcast({
+            "action": "new_block",
+            "block": block_data
+        })
         
-        print("\n\n" + "="*60)
-        print("✅ BLOCK MINED SUCCESSFULLY!")
-        print("="*60)
+        print(f"📢 Broadcast new block to {successful_broadcasts} peers")
+
+    def start_auto_mining(self, mining_reward_address, interval=60):
+        """Start automatic mining at regular intervals"""
+        def mining_loop():
+            while not self.stop_event.is_set():
+                try:
+                    if self.pending_transactions:
+                        self.mine_pending_transactions(mining_reward_address)
+                    else:
+                        print("⏭️ No transactions to mine")
+                    
+                    # Wait for next mining interval
+                    for i in range(interval):
+                        if self.stop_event.is_set():
+                            break
+                        time.sleep(1)
+                        
+                except Exception as e:
+                    print(f"❌ Mining error: {e}")
+                    time.sleep(30)
         
-        # Add the block to the blockchain (this includes the reward transaction)
-        self.add_block(block)
-        
-        # Clear only the mined transactions from mempool
-        mined_signatures = [tx.get("signature") for tx in mineable_transactions]
-        self.pending_transactions = [tx for tx in self.pending_transactions if tx.get("signature") not in mined_signatures]
-        self.save_mempool()
-        
-        # ✅ Broadcast mempool clearance to all peers (including wallet)
-        clearance_data = {
-            "action": "clear_mempool",
-            "block_height": len(self.chain) - 1,
-            "block_hash": block.hash,
-            "cleared_transactions": len(mineable_transactions)
-        }
-        self.broadcast(clearance_data)
-        
-        mining_time = end_time - start_time
-        print(f"📊 Mining Statistics:")
-        print(f"   Block Height: {block.index}")
-        print(f"   Hash: {block.hash[:16]}...")
-        print(f"   Nonce: {block.nonce:,}")
-        print(f"   Mining Time: {mining_time:.2f} seconds")
-        print(f"   Hash Rate: {block.hash_rate:,.2f} H/s")
-        print(f"   Difficulty: {self.difficulty}")
-        print(f"   Transactions: {len(block.transactions)}")  # This now includes the reward
-        print(f"   💰 Bill Found: ${bill_denomination} Bill")
-        print(f"   📈 Multiplier: x{multiplier}")
-        print(f"   ⛏️  Base Reward: {self.base_mining_reward} LC")
-        print(f"   🎯 Total Reward: {actual_reward} LC → {mining_reward_address}")
-        print(f"   🔢 Serial Number: {serial_number}")
-        print(f"   🔗 Verification: {verification_url}")
-        
-        return True
+        mining_thread = threading.Thread(target=mining_loop, daemon=True)
+        mining_thread.start()
+        print(f"⛏️ Auto-mining started (interval: {interval}s)")
 
     def get_mining_stats(self):
         if self.total_blocks_mined == 0:
@@ -1169,7 +1698,7 @@ class Blockchain:
         return self.validate_chain(self.chain)
 
     def load_chain(self):
-        """Load blockchain from storage"""
+        """Load blockchain from storage - FIXED"""
         try:
             chain_data = DataManager.load_json(self.chain_file)
             if chain_data:
@@ -1179,17 +1708,46 @@ class Blockchain:
                         block_data["index"],
                         block_data["previous_hash"],
                         block_data["timestamp"],
-                        block_data["transactions"],
+                        block_data["transactions"],  # ✅ Critical: Load ALL transactions
                         block_data.get("nonce", 0)
                     )
+                    block.hash = block_data["hash"]
                     block.mining_time = block_data.get("mining_time", 0)
                     chain.append(block)
+                
                 print(f"✅ Loaded blockchain with {len(chain)} blocks")
+                
+                # DEBUG: Check if rewards are in loaded blocks
+                reward_count = 0
+                for block in chain:
+                    for tx in block.transactions:
+                        if tx.get("type") == "reward":
+                            reward_count += 1
+                print(f"🔍 Found {reward_count} reward transactions in loaded chain")
+                
                 return chain
         except Exception as e:
-            print(f"⚠️  Could not load blockchain: {e}")
+            print(f"❌ Error loading blockchain: {e}")
+            import traceback
+            traceback.print_exc()
         return None
-
+    def is_transaction_mined(self, transaction: Dict) -> bool:
+        """Check if a transaction has already been mined in the blockchain"""
+        tx_signature = transaction.get("signature")
+        if not tx_signature:
+            return False
+        
+        # Check all blocks in the blockchain
+        for block in self.chain:
+            for tx in block.transactions:
+                if tx.get("signature") == tx_signature:
+                    return True
+                # Also check by content for GTX_Genesis transactions
+                if (tx.get("type") == "GTX_Genesis" and 
+                    transaction.get("type") == "GTX_Genesis" and
+                    tx.get("serial_number") == transaction.get("serial_number")):
+                    return True
+        return False
     def handle_wallet_connection(self, data):
         """Handle incoming wallet requests"""
         action = data.get("action")
@@ -1198,6 +1756,27 @@ class Blockchain:
         try:
             if action == "ping":
                 return {"status": "success", "message": "pong", "timestamp": time.time()}
+            elif action == "get_status":  # ADD THIS NEW ACTION
+                return {
+                    "status": "success",
+                    "node_status": {
+                        "mining_enabled": True,  # Mining is always available
+                        "auto_mine": False,      # No auto-mining in this version
+                        "mempool_size": len(self.pending_transactions),
+                        "blockchain_height": len(self.chain),
+                        "difficulty": self.difficulty,
+                        "peers_count": len(self.peers),
+                        "is_mining": self.is_mining,
+                        "node_address": self.node_address,
+                        "wallet_connected": True
+                    }
+                }
+            elif action == "add_transaction":
+                transaction = data.get("transaction")
+                if self.add_transaction(transaction):
+                    return {"status": "success", "message": "Transaction added to mempool"}
+                else:
+                    return {"status": "error", "message": "Failed to add transaction (validation failed)"}
             elif action == "get_mining_progress":
                 if self.is_mining:
                     return {
@@ -1443,12 +2022,67 @@ class Blockchain:
         if hasattr(self, 'wallet_thread') and self.wallet_thread.is_alive():
             self.wallet_thread.join(timeout=3.0)
         print("✅ Wallet server stopped")
+def configure_import_paths():
+    """Configure Python path for both frozen and normal execution"""
+    
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+        actual_exe_dir = os.path.dirname(sys.executable)
+        
+        print(f"📦 Frozen app detected:")
+        print(f"   - Temp extraction: {base_path}")
+        print(f"   - EXE location: {actual_exe_dir}")
+        
+        # Add both paths to ensure we can find our modules
+        sys.path.insert(0, actual_exe_dir)
+        sys.path.insert(0, base_path)
+        
+        # Set current working directory to where the EXE is located
+        os.chdir(actual_exe_dir)
+    else:
+        # Normal Python execution
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, script_dir)
+        os.chdir(script_dir)
+    
+    print(f"📁 Current working directory: {os.getcwd()}")
+    print(f"📁 Files here: {[f for f in os.listdir('.') if f.endswith(('.py', '.pyd', '.dll'))]}")
 
+# Configure paths FIRST
+configure_import_paths()
+
+# NOW try imports
+
+def configure_ssl_for_frozen_app():
+    """Configure SSL for PyInstaller frozen applications"""
+    if getattr(sys, 'frozen', False):
+        print("🔐 Configuring SSL for frozen app...")
+        try:
+            import ssl
+            context = ssl.create_default_context()
+            print("✅ SSL is working correctly")
+        except Exception as e:
+            print(f"❌ SSL error: {e}")
+            import warnings
+            warnings.filterwarnings('ignore', message='Unverified HTTPS request')
+
+configure_ssl_for_frozen_app()
 def load_mempool() -> List[Dict]:
-    """Load mempool from storage"""
-    transactions = DataManager.load_json("mempool.json", [])
-    print(f"✅ Loaded {len(transactions)} transactions from mempool")
-    return transactions
+    """Load Genesis GTX transactions from the blockchain instead of mempool"""
+    print("🔍 Loading Genesis GTX transactions from blockchain...")
+    
+    genesis_gtx_transactions = []
+    
+    # Scan the blockchain for Genesis GTX transactions
+    for block in blockchain.chain:
+        for tx in block.transactions:
+            # Use the same logic as is_genesis_gtx_transaction
+            if blockchain.is_genesis_gtx_transaction(tx):
+                genesis_gtx_transactions.append(tx)
+    
+    print(f"✅ Loaded {len(genesis_gtx_transactions)} Genesis GTX transactions from blockchain")
+    return genesis_gtx_transactions
 
 def show_mining_animation():
     """Show a simple mining animation when mining"""
@@ -1543,7 +2177,108 @@ def list_recent_bills():
 blockchain = Blockchain()
 blockchain.node_host = "127.0.0.1"
 blockchain.node_port = 9335
+def handle_transaction_status(self, args):
+    """Handle transaction status command"""
+    if not args:
+        print("❌ Usage: transaction status <transaction_id>")
+        return
+    
+    transaction_id = args[0]
+    status = self.get_transaction_status(transaction_id)
+    
+    print(f"\n📊 Transaction Status: {transaction_id}")
+    print("=" * 50)
+    
+    if status["status"] == "confirmed":
+        print(f"✅ Status: CONFIRMED")
+        print(f"📦 Block Height: {status['block_height']}")
+        print(f"🔒 Confirmations: {status['confirmations']}")
+        print(f"⏰ Timestamp: {datetime.fromtimestamp(status['timestamp'])}")
+        self._print_transaction_details(status["transaction"])
+        
+    elif status["status"] == "pending":
+        print(f"⏳ Status: PENDING")
+        print(f"🔒 Confirmations: 0 (waiting to be mined)")
+        print(f"⏰ Timestamp: {datetime.fromtimestamp(status['timestamp'])}")
+        self._print_transaction_details(status["transaction"])
+        
+    else:
+        print(f"❌ Transaction not found")
+        print("💡 Check the transaction ID or wait for it to be propagated")
 
+def handle_address_balance(self, args):
+    """Handle address balance command"""
+    if not args:
+        print("❌ Usage: balance <address>")
+        return
+    
+    address = args[0]
+    balance = self.get_balance(address)
+    
+    if "error" in balance:
+        print(f"❌ Error: {balance['error']}")
+        return
+    
+    print(f"\n💰 Balance for: {address}")
+    print("=" * 50)
+    print(f"✅ Confirmed Balance: {balance['confirmed_balance']} LC")
+    print(f"⏳ Pending Balance: {balance['pending_balance']} LC")
+    print(f"💰 Effective Balance: {balance['effective_balance']} LC")
+    print(f"📊 Total Transactions: {balance['transaction_count']}")
+
+def handle_address_transactions(self, args):
+    """Handle address transactions command"""
+    if not args:
+        print("❌ Usage: transactions <address>")
+        return
+    
+    address = args[0]
+    transactions = self.get_address_transactions(address)
+    
+    if "error" in transactions:
+        print(f"❌ Error: {transactions['error']}")
+        return
+    
+    print(f"\n📊 Transaction History for: {address}")
+    print("=" * 60)
+    
+    if not transactions:
+        print("No transactions found")
+        return
+    
+    for i, tx in enumerate(transactions):
+        status_icon = "✅" if tx["status"] == "confirmed" else "⏳"
+        direction = "➡️ OUT" if tx.get("sender") == address else "⬅️ IN"
+        amount = tx.get("amount", 0)
+        
+        print(f"{i+1}. {status_icon} {direction} {amount} LC")
+        print(f"   Type: {tx.get('type', 'transfer')}")
+        print(f"   Status: {tx['status']} ({tx.get('confirmations', 0)} confirmations)")
+        print(f"   Time: {datetime.fromtimestamp(tx.get('timestamp', 0))}")
+        
+        if tx.get("sender") == address:
+            print(f"   To: {tx.get('recipient', 'Unknown')}")
+        else:
+            print(f"   From: {tx.get('sender', 'Mining Reward')}")
+        
+        if tx.get("hash"):
+            print(f"   Hash: {tx['hash'][:16]}...")
+        
+        print()
+
+def _print_transaction_details(self, tx):
+    """Print formatted transaction details"""
+    print("\n📄 Transaction Details:")
+    print(f"   Type: {tx.get('type', 'transfer')}")
+    print(f"   Amount: {tx.get('amount', 0)} LC")
+    print(f"   Sender: {tx.get('sender', 'Mining Reward')}")
+    print(f"   Recipient: {tx.get('recipient', 'Unknown')}")
+    
+    if tx.get('serial_number'):
+        print(f"   Serial: {tx['serial_number']}")
+    
+    if tx.get('hash'):
+        print(f"   Hash: {tx['hash'][:24]}...")
 def cleanup():
     """Cleanup function for graceful shutdown"""
     print("\n💾 Performing cleanup...")
@@ -1598,13 +2333,38 @@ def main():
                 else:
                     print("❌ Could not get valid miner address")
                     
+            elif command.startswith("transaction status"):
+                parts = command.split()
+                if len(parts) >= 3:
+                    tx_id = parts[2]
+                    blockchain.handle_transaction_status([tx_id])
+                else:
+                    print("❌ Usage: transaction status <transaction_id>")
+                    
+            elif command.startswith("balance"):
+                parts = command.split()
+                if len(parts) >= 2:
+                    address = parts[1]
+                    blockchain.handle_address_balance([address])
+                else:
+                    print("❌ Usage: balance <address>")
+                    
+            elif command.startswith("transactions"):
+                parts = command.split()
+                if len(parts) >= 2:
+                    address = parts[1]
+                    blockchain.handle_address_transactions([address])
+                else:
+                    print("❌ Usage: transactions <address>")
+                    
             elif command == "load":
-                txs = load_mempool()
+                # Load Genesis GTX transactions from the blockchain
+                txs = load_mempool()  # This function now loads from blockchain
                 loaded_count = 0
                 for tx in txs:
                     if blockchain.add_transaction(tx):
                         loaded_count += 1
-                print(f"📥 Added {loaded_count}/{len(txs)} transactions to pending pool")
+                print(f"📥 Added {loaded_count}/{len(txs)} Genesis GTX transactions to pending pool")
                 
             elif command == "status":
                 latest = blockchain.get_latest_block()
@@ -1734,12 +2494,18 @@ def main():
                 
             elif command == "help":
                 show_help()
-                print("  bills_list - Show recently mined bills with verification links")
-                print("  limits     - Show denomination limits for spam protection")
-                print("  check_rewards - Check reward transactions in blockchain")
+                print("\n📊 TRANSACTION COMMANDS:")
+                print("  transaction status <tx_id> - Check transaction status and confirmations")
+                print("  balance <address>          - Check address balance (confirmed + pending)")
+                print("  transactions <address>     - View transaction history for an address")
+                print("  bills_list                 - Show recently mined bills with verification links")
+                print("  limits                     - Show denomination limits for spam protection")
+                print("  check_rewards              - Check reward transactions in blockchain")
                 
             elif command in ["exit", "quit"]:
                 print("💾 Saving blockchain and exiting...")
+                blockchain.stop_event.set()
+                blockchain.save_chain()
                 break
                 
             else:
@@ -1747,9 +2513,44 @@ def main():
                 
         except KeyboardInterrupt:
             print("\n💾 Saving blockchain and exiting...")
+            blockchain.stop_event.set()
+            blockchain.save_chain()
             break
         except Exception as e:
             print(f"❌ Error: {e}")
+            import traceback
+            traceback.print_exc()
+
+def show_help():
+    """Show available commands"""
+    print("\n⛓️  BLOCKCHAIN NODE COMMANDS:")
+    print("  mine                    - Mine pending transactions")
+    print("  status                  - Show blockchain status")
+    print("  stats                   - Show mining statistics")
+    print("  validate                - Validate blockchain integrity")
+    print("  difficulty [level]      - Set or show current difficulty (1-8)")
+    print("  bills                   - Show available bills for current difficulty")
+    print("  load                    - Load Genesis GTX transactions")
+    print("  clear                   - Clear pending transactions")
+    
+    print("\n🌐 NETWORK COMMANDS:")
+    print("  peers                   - List known peers")
+    print("  addpeer <ip:port>       - Add a new peer")
+    print("  discover                - Discover new peers")
+    print("  download blockchain     - Download blockchain from peers")
+    print("  download mempool        - Download mempool from peers")
+    
+    print("\n📊 TRANSACTION COMMANDS:")
+    print("  transaction status <tx_id> - Check transaction status and confirmations")
+    print("  balance <address>          - Check address balance (confirmed + pending)")
+    print("  transactions <address>     - View transaction history for an address")
+    print("  bills_list                 - Show recently mined bills")
+    print("  limits                     - Show denomination limits")
+    print("  check_rewards              - Check reward transactions")
+    
+    print("\n⚙️  SYSTEM COMMANDS:")
+    print("  help                    - Show this help message")
+    print("  exit/quit               - Exit the node")
 
 if __name__ == "__main__":
     try:
