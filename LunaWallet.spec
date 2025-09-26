@@ -7,7 +7,7 @@ block_cipher = None
 
 # Collect SSL certificates and required modules for wallet
 hiddenimports = [
-    'urllib3',
+    'urllib',
     'certifi',
     'chardet',
     'idna',
@@ -22,7 +22,7 @@ hiddenimports = [
     'base64',
     'binascii',
     'threading',
-    'netifaces'
+    'netifaces',
 ]
 
 # Collect certificate files
