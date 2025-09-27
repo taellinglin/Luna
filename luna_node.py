@@ -944,7 +944,51 @@ class Blockchain:
         
         # Remove duplicates and return
         return list(set(targets))
-
+    def broadcast_reward_transaction(self, reward_data):
+        """Broadcast a reward transaction to the API"""
+        try:
+            print(color_text("🌐 Broadcasting reward transaction to API...", COLORS['B']))
+            
+            # Structure the reward transaction according to the API format
+            reward_tx = {
+                "to": reward_data.get("to", ""),
+                "amount": float(reward_data.get("amount", 0)),  # Ensure it's a float
+                "description": reward_data.get("description", "Mining reward"),
+                "block_height": int(reward_data.get("block_height", 0)),  # Ensure it's an int
+                "type": "reward"
+            }
+            
+            # Validate required fields
+            if not reward_tx["to"]:
+                print(color_text("❌ Cannot broadcast reward: missing 'to' address", COLORS['R']))
+                return False
+            
+            if reward_tx["amount"] <= 0:
+                print(color_text("❌ Cannot broadcast reward: invalid amount", COLORS['R']))
+                return False
+            
+            response = requests.post(
+                f"{self.config.api_base_url}/api/transaction/reward",
+                json=reward_tx,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("status") == "success":
+                    print(color_text(f"✅ Reward transaction broadcasted successfully!", COLORS['G']))
+                    print(color_text(f"📝 Transaction hash: {result.get('transaction_hash', 'unknown')}", COLORS['B']))
+                    return True
+                else:
+                    print(color_text(f"❌ API returned error: {result.get('message', 'Unknown error')}", COLORS['R']))
+            else:
+                print(color_text(f"❌ API returned status code: {response.status_code}", COLORS['R']))
+                print(color_text(f"📋 Response: {response.text}", COLORS['O']))
+                
+        except Exception as e:
+            print(color_text(f"❌ Error broadcasting reward transaction: {e}", COLORS['R']))
+        
+        return False
     def create_transaction_structure(self, transaction_data):
         """Create properly structured transaction"""
         transaction = {
@@ -1340,6 +1384,20 @@ class LunaNode:
                 for tx in unmined_txs:
                     tx_signature = self.blockchain.get_transaction_signature(tx)
                     self.config.mark_transaction_mined(tx_signature, new_block.hash)
+                
+                # BROADCAST REWARD TO API
+                reward_data = {
+                    "to": self.config.miner_address,
+                    "amount": total_reward,
+                    "description": f"Mined block #{new_index} with {len(unmined_txs)} transactions",
+                    "block_height": new_index
+                }
+                
+                # Broadcast reward to API
+                if self.blockchain.broadcast_reward_transaction(reward_data):
+                    print(color_text("💰 Reward successfully submitted to network!", COLORS['G']))
+                else:
+                    print(color_text("⚠️  Reward submission failed, but block was mined locally", COLORS['O']))
                 
                 # Remove mined transactions from mempool
                 self._remove_mined_from_mempool(unmined_txs)

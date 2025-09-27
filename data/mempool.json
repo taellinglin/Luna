@@ -1,82 +1,174 @@
 [
   {
-    "back_serial": "SN-g1BB-E9kJ-FzI9",
-    "denomination": "100000",
-    "front_serial": "SN-1eiRsnH2oFxnlw-GrM",
-    "issued_to": "Sanny Lin",
-    "metadata_hash": "61976398b9e5e95a943929a7a91d86dccd0704f9fe6988ded2e96853c034bbcc",
-    "mining_requirements": {
-      "denomination": "100000",
-      "estimated_mining_time": 1,
-      "mining_cost_estimate": 3.2e-05,
-      "required_difficulty": 5
-    },
-    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741454377356f35627a4d745056764567636138374e32436e635164614d640a3738664f504a7163616d3353426a666570575044464d2f6b71626a4c2b3333667a544c4a643879465438555a7a74595a487731375964416a53413d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
-    "required_difficulty": 5,
-    "serial_number": "SN-SN--1ei-RsnH",
-    "signature": "3045022100eb05e713e299770d4dfe06315b364d66277c8fc54e783096f8652d2d2942a8b602207b6220398309226ed9049509030b83e13ea3384b6400af3185bc3ed3caebea6e",
-    "timestamp": 1758761026276,
-    "type": "GTX_Genesis",
-    "verification_url": "https://bank.linglin.art/verify/SN-SN--1ei-RsnH"
+    "amount": 250,
+    "block_height": 14,
+    "description": "Mining reward for 5 bills",
+    "hash": "88382d79be37e1a1add71ccfb2323f49025d910c939f70ba19b289c1180c4c73",
+    "timestamp": 1758923015.5737925,
+    "to": "linglin_art_server",
+    "type": "transaction"
   },
   {
-    "back_serial": "SN-tfeU-8rLZ-CV1b",
-    "denomination": "1000000",
-    "front_serial": "SN-XfWIT_pqMC1eTw-zJQ",
-    "issued_to": "Sanny Lin",
-    "metadata_hash": "46ff09c23f0c8ded0315b0ede84246e1f9f98390d9b5fe46470047a9fce15f2d",
-    "mining_requirements": {
-      "denomination": "1000000",
-      "estimated_mining_time": 1,
-      "mining_cost_estimate": 6.4e-05,
-      "required_difficulty": 6
-    },
-    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741456246755272386a3358742b364d3839677a5953316b766c33525364390a33496471435a5472316c332b5062325971766e754a42736b7630597a307438336673765331482b686e7a394b37453070364f43516f63353477413d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
-    "required_difficulty": 6,
-    "serial_number": "SN-SN--XfW-IT_p",
-    "signature": "3045022100ac2eb7bcbed55fb4f8cb946a6d200cd9c1518874fb077a473c8025c00cd9ddf102206a5ffb311324a4fc1e433bfbc0a4da059ee20fa77d30cf3bab8e0278dba5ad0f",
-    "timestamp": 1758761118368,
-    "type": "GTX_Genesis",
-    "verification_url": "https://bank.linglin.art/verify/SN-SN--XfW-IT_p"
+    "amount": 250,
+    "block_height": 14,
+    "description": "Mining reward for 5 bills",
+    "hash": "f524d44243c0ba31997d1b4bb8f72a7aa793dea4186d1db451dfaafe1b9fda6a",
+    "timestamp": 1758923017.2392988,
+    "to": "linglin_art_server",
+    "type": "transaction"
   },
   {
-    "back_serial": "SN-nwcC-9tNj-8Cy7",
+    "amount": 250,
+    "block_height": 14,
+    "description": "Mining reward for 5 bills",
+    "hash": "60f5c27cb295f6d78dddd6697982632fcba380de1a62523a599583b8a68686d9",
+    "timestamp": 1758923017.3320868,
+    "to": "linglin_art_server",
+    "type": "transaction"
+  },
+  {
+    "amount": 250,
+    "block_height": 14,
+    "description": "Mining reward for 5 bills",
+    "hash": "f4d7660c13e049a13654209266a33bd50523fa8b13f9a1f1a696f3929848fb75",
+    "timestamp": 1758923017.4804492,
+    "to": "linglin_art_server",
+    "type": "transaction"
+  },
+  {
+    "amount": 250,
+    "block_height": 14,
+    "description": "Mining reward for 5 bills",
+    "hash": "02d2611cf308246dc09a1c7e90c166d6e6546ef4473b40c28619170372c0b04d",
+    "timestamp": 1758923017.8330927,
+    "to": "linglin_art_server",
+    "type": "transaction"
+  },
+  {
+    "amount": 300,
+    "block_height": 15,
+    "description": "Mining reward for 6 bills",
+    "hash": "ded5274ee8df3550e007e4ba200f418a90922d4b1598fbc9d3f0e8e263414c9f",
+    "timestamp": 1758923134.495005,
+    "to": "linglin_art_server",
+    "type": "transaction"
+  },
+  {
+    "amount": 300,
+    "block_height": 16,
+    "description": "Mining reward for 6 bills",
+    "hash": "c0e10519503d6b4214481145a7eddb5abca32a755eb2cfff0385f4aeb42a4cbd",
+    "timestamp": 1758928672.4175413,
+    "to": "linglin_art_server",
+    "type": "transaction"
+  },
+  {
+    "amount": 300,
+    "block_height": 16,
+    "description": "Mining reward for 6 bills",
+    "hash": "da61b64189934cc5896e9f80178dd403b71138bed6530dd8b92769cbddacabd0",
+    "timestamp": 1758928674.9449866,
+    "to": "linglin_art_server",
+    "type": "transaction"
+  },
+  {
+    "back_serial": "SN-vj-l-nhnV-W_1Q",
     "denomination": "10000000",
-    "front_serial": "SN-9PGs-PBqfsutHg-hf4",
-    "issued_to": "Sanny Lin",
-    "metadata_hash": "b4e42cd8f93e0f0497dcb2828b09f23d5a200e5ee691b6e7171cf5f2699deea2",
+    "front_serial": "SN-xQgcoqWm4YSoyw-N1s",
+    "issued_to": "Daniel",
+    "metadata_hash": "5db8bdefab3926131963ede6c8637d81959caa2c76fb3472e90d68f5c91997b7",
     "mining_requirements": {
       "denomination": "10000000",
       "estimated_mining_time": 1,
       "mining_cost_estimate": 0.000128,
       "required_difficulty": 7
     },
-    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145504d49676350356230726b4e5977314b6d37362b6a7a474a2b7655580a6847593762386f704341414145374b32366f436f612f694d5a6d6878694e7962382f654251413678675678455a39304946667243786e4a4747513d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741456a397a52655234505a755a64564870463473486e39676f2f3875454f0a374e6531304678472f7567537544612b446e476e6257724d59454e615a63332f505a53754d2b594d5563484e7051626148336d796541793772673d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
     "required_difficulty": 7,
-    "serial_number": "SN-SN--9PG-s-PB",
-    "signature": "3045022001256b12884cba47c09b6274c43c02f75ab59b913e77a12001cee9eea860ecc7022100d58b568e80abfa7453a1e7341623671c189b145b1210573278976de7ccc1ff71",
-    "timestamp": 1758761211954,
+    "serial_number": "SN--xQg-coqW",
+    "signature": "3044022068932d35a5d1311e48d70ed9ea783376949c13a35104fcdad94d97a660246ec302207f1de4783fd89f39b33421284d97b0d0e352417e33246e9c7a2524708439fe93",
+    "timestamp": 1758928768970,
     "type": "GTX_Genesis",
-    "verification_url": "https://bank.linglin.art/verify/SN-SN--9PG-s-PB"
+    "verification_url": "https://bank.linglin.art/verify/SN--xQg-coqW"
   },
   {
-    "back_serial": "SN-uwrM-X1_S-_z-1",
+    "back_serial": "SN-K-Ys--5e9-zK4G",
     "denomination": "100000000",
-    "front_serial": "SN-4SdSfJxO6wnHhA-px8",
-    "issued_to": "Sanny Lin",
-    "metadata_hash": "977b4a0d151f33855f55f0d0570c8f28935300f33a36746c9fabb204fd567d4d",
+    "front_serial": "SN-bJHJMN_XoyYYyQ-T2o",
+    "issued_to": "Daniel",
+    "metadata_hash": "e1bfd5ae9c183b60b749b09a0402fa6831bb55f1f91dc14576e10bc2d529fa3b",
     "mining_requirements": {
       "denomination": "100000000",
       "estimated_mining_time": 1,
       "mining_cost_estimate": 0.000256,
       "required_difficulty": 8
     },
-    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a304441516344516741454a6c53766d624d6c4e7a74526d4c6e7a375a702b4877464d6d3239640a73375478674c526971384c73766b5261456b3331424a59307a372f642b7176703652317a6d7954376854354e2b536a41373955734843536d76673d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
+    "public_key": "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145336d4b796333645665376d5a7a71392b7954495a595a4566496e37690a6c72306d4a352b4e724c423648567673506c586139764f5834393353676e39494c644d36496a54766841577446786470534e2f6e7777697953673d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
     "required_difficulty": 8,
-    "serial_number": "SN-SN--4Sd-SfJx",
-    "signature": "30460221009118273f0f893172b3a5ac0bcfe2aa5dfa95c36b8d0ff0a7229b1b22c42eddae02210099ac5359257a726f6a81d7b6688010762a1e7e9cf9a093bc438f5f4c4742edbc",
-    "timestamp": 1758761303102,
+    "serial_number": "SN--bJH-JMN_",
+    "signature": "3045022100949729d85a0a7c7ff169b1bb63df5ac03af3f74f4676fc26dbb4a07da2886e37022025944d3aeb26fac2d961ea768212be4df8c32b3b9e99adc3349f8618882ec6aa",
+    "timestamp": 1758928861664,
     "type": "GTX_Genesis",
-    "verification_url": "https://bank.linglin.art/verify/SN-SN--4Sd-SfJx"
+    "verification_url": "https://bank.linglin.art/verify/SN--bJH-JMN_"
+  },
+  {
+    "amount": 300,
+    "block_height": 17,
+    "description": "Mining reward for 6 bills",
+    "hash": "b02ad1ad718066ec0bb7424eb8e2c188125934e62e48885692babd124d8382b6",
+    "timestamp": 1758932337.6416402,
+    "to": "127.0.0.1:9335",
+    "type": "transaction"
+  },
+  {
+    "amount": 2.2,
+    "block_height": 22,
+    "description": "Mined block #22 with 12 transactions",
+    "hash": "980139e676262ff0a11fad37676b9cc1dabe89db5d2282c7b0ec378b7edb1705",
+    "timestamp": 1758932714.740973,
+    "to": "LKC_d6ee9b76a69b56c0_366e7437",
+    "type": "reward"
+  },
+  {
+    "amount": 10.0,
+    "confirmations": 0,
+    "from": "LKC_7d90986ef6a50b24_888e2505",
+    "hash": "3425968b8aa1431eb7de4af38d2a226c0221825ab098eb8f3fb93c273bbd9f3f",
+    "memo": "\"<3\"",
+    "signature": "tx_9c8dfea7e233e16a6046cc747d5758ad",
+    "status": "pending",
+    "timestamp": 1758932761.128351,
+    "to": "lkc_d6ee9b76a69b56c0_366e7437",
+    "type": "transfer"
+  },
+  {
+    "amount": 10.0,
+    "confirmations": 0,
+    "from": "LKC_7d90986ef6a50b24_888e2505",
+    "hash": "8bee641dfe85d34d6d53dccf60b9dd63f34de34363700f60c650eb45625e6e9f",
+    "memo": "",
+    "signature": "tx_8acae31c35ff95fa4933799a50ef61f8",
+    "status": "pending",
+    "timestamp": 1758935157.335658,
+    "to": "lkc_d6ee9b76a69b56c0_366e7437",
+    "type": "transfer"
+  },
+  {
+    "amount": 1.4,
+    "block_height": 23,
+    "description": "Mined block #23 with 4 transactions",
+    "hash": "e2809bb73725eed9eb393366633634171807576abb8d8ba9746462df0259b955",
+    "timestamp": 1758935403.9204574,
+    "to": "LKC_d6ee9b76a69b56c0_366e7437",
+    "type": "reward"
+  },
+  {
+    "amount": 1.5,
+    "block_height": 20,
+    "description": "Mined block #20 with 5 transactions",
+    "hash": "6d12cc906c36c33a7d8d37c8a9cab5e49565fbe5628ef7283000ae4f1c9eb470",
+    "timestamp": 1758936434.2611897,
+    "to": "LUN_5e3181346e82a4bd",
+    "type": "reward"
   }
 ]
