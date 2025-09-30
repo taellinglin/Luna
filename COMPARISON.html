@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luna Coin Feature Comparison</title>
+    <style>
+        :root {
+            --luna-primary: #6a0dad;
+            --luna-secondary: #9b4dca;
+            --bitcoin: #f7931a;
+            --ethereum: #3c3c3d;
+            --litecoin: #b8b8b8;
+            --success: #4CAF50;
+            --warning: #FF9800;
+            --danger: #F44336;
+            --info: #2196F3;
+            --dark: #333;
+            --light: #f8f9fa;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--luna-primary), var(--luna-secondary));
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background-color: white;
+            border: none;
+            cursor: pointer;
+            margin: 5px;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .tab.active {
+            background-color: var(--luna-primary);
+            color: white;
+        }
+        
+        .tab:hover:not(.active) {
+            background-color: #e9ecef;
+        }
+        
+        .comparison-section {
+            display: none;
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .comparison-section.active {
+            display: block;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .comparison-table th {
+            background-color: var(--luna-primary);
+            color: white;
+            padding: 15px;
+            text-align: left;
+        }
+        
+        .comparison-table td {
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .comparison-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        .comparison-table tr:hover {
+            background-color: #f1f1f1;
+        }
+        
+        .feature-name {
+            font-weight: bold;
+            width: 25%;
+        }
+        
+        .coin-cell {
+            text-align: center;
+            width: 18.75%;
+        }
+        
+        .yes {
+            color: var(--success);
+            font-weight: bold;
+        }
+        
+        .no {
+            color: var(--danger);
+            font-weight: bold;
+        }
+        
+        .partial {
+            color: var(--warning);
+            font-weight: bold;
+        }
+        
+        .coin-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        .luna { color: var(--luna-primary); }
+        .bitcoin { color: var(--bitcoin); }
+        .ethereum { color: var(--ethereum); }
+        .litecoin { color: var(--litecoin); }
+        
+        .feature-highlight {
+            background-color: #e8f4fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid var(--info);
+        }
+        
+        .summary {
+            background-color: #f0f8ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+        
+        .summary h3 {
+            color: var(--luna-primary);
+            margin-bottom: 15px;
+        }
+        
+        .summary ul {
+            padding-left: 20px;
+        }
+        
+        .summary li {
+            margin-bottom: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .comparison-table {
+                font-size: 0.9rem;
+            }
+            
+            .comparison-table th, 
+            .comparison-table td {
+                padding: 10px 5px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                width: 100%;
+                margin: 2px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Luna Coin Feature Comparison</h1>
+            <p class="subtitle">Complete comparison of Luna Coin against other cryptocurrencies, miners, and wallets</p>
+        </header>
+        
+        <div class="tabs">
+            <button class="tab active" data-tab="crypto">Cryptocurrencies</button>
+            <button class="tab" data-tab="mining">Mining Software</button>
+            <button class="tab" data-tab="wallets">Wallet Software</button>
+            <button class="tab" data-tab="banknotes">Banknote Features</button>
+            <button class="tab" data-tab="technical">Technical Features</button>
+            <button class="tab" data-tab="unique">Unique Features</button>
+        </div>
+        
+        <!-- Cryptocurrencies Comparison -->
+        <section id="crypto" class="comparison-section active">
+            <h2>Luna Coin vs Traditional Cryptocurrencies</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Luna Coin</th>
+                        <th>Bitcoin</th>
+                        <th>Ethereum</th>
+                        <th>Litecoin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="feature-name">Consensus Mechanism</td>
+                        <td class="coin-cell"><span class="coin-label luna">Luna Coin</span>Proof-of-Work (Custom)</td>
+                        <td class="coin-cell"><span class="coin-label bitcoin">Bitcoin</span>Proof-of-Work (SHA-256)</td>
+                        <td class="coin-cell"><span class="coin-label ethereum">Ethereum</span>Proof-of-Stake (Eth2)</td>
+                        <td class="coin-cell"><span class="coin-label litecoin">Litecoin</span>Proof-of-Work (Scrypt)</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Transaction Types</td>
+                        <td class="coin-cell"><span class="yes">Genesis, Transfer, Reward</span></td>
+                        <td class="coin-cell"><span class="no">Basic Transfer</span></td>
+                        <td class="coin-cell"><span class="yes">Smart Contracts, Tokens</span></td>
+                        <td class="coin-cell"><span class="no">Basic Transfer</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Blockchain Integration</td>
+                        <td class="coin-cell"><span class="yes">Banknote Generation System</span></td>
+                        <td class="coin-cell"><span class="no">Standalone</span></td>
+                        <td class="coin-cell"><span class="no">Standalone</span></td>
+                        <td class="coin-cell"><span class="no">Standalone</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Unique Asset Backing</td>
+                        <td class="coin-cell"><span class="yes">Digital Banknotes</span></td>
+                        <td class="coin-cell"><span class="no">None</span></td>
+                        <td class="coin-cell"><span class="no">None</span></td>
+                        <td class="coin-cell"><span class="no">None</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Mining Rewards</td>
+                        <td class="coin-cell"><span class="yes">Bill-based + Transaction fees</span></td>
+                        <td class="coin-cell"><span class="no">Block reward + fees</span></td>
+                        <td class="coin-cell"><span class="no">Staking rewards</span></td>
+                        <td class="coin-cell"><span class="no">Block reward + fees</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Customization</td>
+                        <td class="coin-cell"><span class="yes">Highly customizable banknotes</span></td>
+                        <td class="coin-cell"><span class="no">Fixed protocol</span></td>
+                        <td class="coin-cell"><span class="partial">Smart contract flexibility</span></td>
+                        <td class="coin-cell"><span class="no">Fixed protocol</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+        
+        <!-- Mining Software Comparison -->
+        <section id="mining" class="comparison-section">
+            <h2>Mining Software Comparison</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Luna Node</th>
+                        <th>CGMiner</th>
+                        <th>NiceHash</th>
+                        <th>BFGMiner</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="feature-name">Mining Type</td>
+                        <td class="coin-cell"><span class="coin-label luna">Luna Node</span>CPU-based custom PoW</td>
+                        <td class="coin-cell"><span class="coin-label bitcoin">CGMiner</span>ASIC/GPU mining</td>
+                        <td class="coin-cell"><span class="coin-label ethereum">NiceHash</span>Pool mining</td>
+                        <td class="coin-cell"><span class="coin-label litecoin">BFGMiner</span>FPGA/ASIC mining</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Auto-mining</td>
+                        <td class="coin-cell"><span class="yes">Yes</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                        <td class="coin-cell"><span class="yes">Yes</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Mempool Integration</td>
+                        <td class="coin-cell"><span class="yes">Real-time sync</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                        <td class="coin-cell"><span class="partial">Partial</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Reward System</td>
+                        <td class="coin-cell"><span class="yes">Bill-based + bonuses</span></td>
+                        <td class="coin-cell"><span class="no">Block rewards</span></td>
+                        <td class="coin-cell"><span class="no">Pool payments</span></td>
+                        <td class="coin-cell"><span class="no">Block rewards</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Difficulty Adjustment</td>
+                        <td class="coin-cell"><span class="yes">Manual (1-8)</span></td>
+                        <td class="coin-cell"><span class="yes">Automatic</span></td>
+                        <td class="coin-cell"><span class="yes">Automatic</span></td>
+                        <td class="coin-cell"><span class="yes">Automatic</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Color UI</td>
+                        <td class="coin-cell"><span class="yes">ROYGBIV theme</span></td>
+                        <td class="coin-cell"><span class="no">Text-only</span></td>
+                        <td class="coin-cell"><span class="yes">Web UI</span></td>
+                        <td class="coin-cell"><span class="no">Text-only</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">API Integration</td>
+                        <td class="coin-cell"><span class="yes">Full REST API</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                        <td class="coin-cell"><span class="partial">Limited</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+        
+        <!-- Wallet Software Comparison -->
+        <section id="wallets" class="comparison-section">
+            <h2>Wallet Software Comparison</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Luna Wallet</th>
+                        <th>Electrum</th>
+                        <th>MetaMask</th>
+                        <th>Exodus</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="feature-name">Blockchain Sync</td>
+                        <td class="coin-cell"><span class="coin-label luna">Luna Wallet</span>Direct file access</td>
+                        <td class="coin-cell"><span class="coin-label bitcoin">Electrum</span>SPV mode</td>
+                        <td class="coin-cell"><span class="coin-label ethereum">MetaMask</span>Web3 provider</td>
+                        <td class="coin-cell"><span class="coin-label litecoin">Exodus</span>Multiple chains</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">QR Code Generation</td>
+                        <td class="coin-cell"><span class="yes">Automatic</span></td>
+                        <td class="coin-cell"><span class="yes">Yes</span></td>
+                        <td class="coin-cell"><span class="yes">Yes</span></td>
+                        <td class="coin-cell"><span class="yes">Yes</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Transaction Types</td>
+                        <td class="coin-cell"><span class="yes">Transfer with memos</span></td>
+                        <td class="coin-cell"><span class="no">Basic transfers</span></td>
+                        <td class="coin-cell"><span class="yes">Smart contracts</span></td>
+                        <td class="coin-cell"><span class="yes">Multi-asset</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Confirmation Tracking</td>
+                        <td class="coin-cell"><span class="yes">Real-time updates</span></td>
+                        <td class="coin-cell"><span class="yes">Yes</span></td>
+                        <td class="coin-cell"><span class="yes">Yes</span></td>
+                        <td class="coin-cell"><span class="yes">Yes</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Backup System</td>
+                        <td class="coin-cell"><span class="yes">Auto + manual</span></td>
+                        <td class="coin-cell"><span class="yes">Seed phrase</span></td>
+                        <td class="coin-cell"><span class="yes">Seed phrase</span></td>
+                        <td class="coin-cell"><span class="yes">Seed phrase</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Debug Tools</td>
+                        <td class="coin-cell"><span class="yes">Extensive logging</span></td>
+                        <td class="coin-cell"><span class="no">Limited</span></td>
+                        <td class="coin-cell"><span class="yes">Developer mode</span></td>
+                        <td class="coin-cell"><span class="no">Limited</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Color Interface</td>
+                        <td class="coin-cell"><span class="yes">ROYGBIV theme</span></td>
+                        <td class="coin-cell"><span class="no">Basic</span></td>
+                        <td class="coin-cell"><span class="yes">Modern UI</span></td>
+                        <td class="coin-cell"><span class="yes">Modern UI</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+        
+        <!-- Banknote Integration Features -->
+        <section id="banknotes" class="comparison-section">
+            <h2>Banknote Integration Features</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Luna System</th>
+                        <th>Traditional Crypto</th>
+                        <th>CBDC Systems</th>
+                        <th>Stablecoins</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="feature-name">Digital Banknotes</td>
+                        <td class="coin-cell"><span class="yes">SVG/PNG generation</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                        <td class="coin-cell"><span class="yes">Digital currency</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Serial Number Tracking</td>
+                        <td class="coin-cell"><span class="yes">Unique serials</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                        <td class="coin-cell"><span class="yes">Possible</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Visual Design</td>
+                        <td class="coin-cell"><span class="yes">Custom portraits</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                        <td class="coin-cell"><span class="yes">Basic design</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Verification System</td>
+                        <td class="coin-cell"><span class="yes">QR code validation</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                        <td class="coin-cell"><span class="yes">Government-backed</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Generation Queue</td>
+                        <td class="coin-cell"><span class="yes">Admin-controlled</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                        <td class="coin-cell"><span class="yes">Centralized minting</span></td>
+                        <td class="coin-cell"><span class="yes">Mint/burn</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Public/Private Toggle</td>
+                        <td class="coin-cell"><span class="yes">User control</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                        <td class="coin-cell"><span class="no">No</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+        
+        <!-- Technical Features -->
+        <section id="technical" class="comparison-section">
+            <h2>Technical Features</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Luna Coin</th>
+                        <th>Typical Cryptocurrency</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="feature-name">Programming Language</td>
+                        <td class="coin-cell"><span class="coin-label luna">Luna Coin</span>Python 3</td>
+                        <td class="coin-cell"><span class="coin-label bitcoin">Typical Crypto</span>Various (C++, Go, Rust)</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Database</td>
+                        <td class="coin-cell"><span class="yes">SQLite + JSON files</span></td>
+                        <td class="coin-cell"><span class="no">Various (LevelDB, etc.)</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">API Endpoints</td>
+                        <td class="coin-cell"><span class="yes">RESTful API</span></td>
+                        <td class="coin-cell"><span class="partial">Usually JSON-RPC</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Admin Panel</td>
+                        <td class="coin-cell"><span class="yes">Web-based admin</span></td>
+                        <td class="coin-cell"><span class="no">No (command-line only)</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">User Management</td>
+                        <td class="coin-cell"><span class="yes">Flask-based auth</span></td>
+                        <td class="coin-cell"><span class="no">No built-in system</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">File Generation</td>
+                        <td class="coin-cell"><span class="yes">Banknote images</span></td>
+                        <td class="coin-cell"><span class="no">No asset generation</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-name">Blockchain Viewer</td>
+                        <td class="coin-cell"><span class="yes">Web interface</span></td>
+                        <td class="coin-cell"><span class="yes">Usually explorers</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+        
+        <!-- Unique Features -->
+        <section id="unique" class="comparison-section">
+            <h2>Unique Luna Coin Features</h2>
+            
+            <div class="feature-highlight">
+                <h3>✅ Exclusive to Luna Coin:</h3>
+                <ul>
+                    <li><strong>Digital Banknote Generation</strong> - Create visual currency with custom designs</li>
+                    <li><strong>Banknote Serial Number System</strong> - Track individual digital bills</li>
+                    <li><strong>Integrated Gallery System</strong> - Display user-generated banknotes</li>
+                    <li><strong>Two-Factor Authentication</strong> - Enhanced security for wallet access</li>
+                    <li><strong>Generation Queue Management</strong> - Controlled currency minting</li>
+                    <li><strong>ROYGBIV Color Theme</strong> - Visual appeal across all components</li>
+                    <li><strong>Admin Control Panel</strong> - Web-based system management</li>
+                    <li><strong>Mempool Visualization</strong> - Real-time transaction monitoring</li>
+                    <li><strong>Blockchain Web Viewer</strong> - User-friendly block exploration</li>
+                    <li><strong>Auto-sync Capabilities</strong> - Seamless node/wallet synchronization</li>
+                </ul>
+            </div>
+            
+            <div class="feature-highlight">
+                <h3>⚡ Performance Characteristics:</h3>
+                <ul>
+                    <li><strong>Mining</strong>: CPU-efficient, suitable for standard computers</li>
+                    <li><strong>Transactions</strong>: Fast confirmation times (custom blockchain)</li>
+                    <li><strong>Scalability</strong>: Designed for moderate transaction volumes</li>
+                    <li><strong>Storage</strong>: Efficient JSON-based blockchain storage</li>
+                </ul>
+            </div>
+            
+            <div class="feature-highlight">
+                <h3>🔒 Security Features:</h3>
+                <ul>
+                    <li><strong>Digital Signatures</strong> - Banknote authenticity verification</li>
+                    <li><strong>Transaction Signing</strong> - Secure fund transfers</li>
+                    <li><strong>Admin Controls</strong> - Restricted currency generation</li>
+                    <li><strong>2FA Protection</strong> - Enhanced account security</li>
+                </ul>
+            </div>
+        </section>
+        
+        <div class="summary">
+            <h3>🌟 Summary</h3>
+            <p><strong>Luna Coin</strong> stands out as a <strong>hybrid system</strong> combining traditional cryptocurrency features with unique digital banknote generation capabilities. It's particularly suited for:</p>
+            <ul>
+                <li><strong>Educational purposes</strong> - Learning blockchain technology</li>
+                <li><strong>Custom currency systems</strong> - Organizations wanting branded digital money</li>
+                <li><strong>Artistic applications</strong> - Creating visually appealing digital currency</li>
+                <li><strong>Lightweight mining</strong> - CPU-based mining accessible to everyone</li>
+            </ul>
+            <p>While not competing with major cryptocurrencies in terms of scale or market cap, Luna Coin offers <strong>unique features</strong> not found in traditional crypto systems, making it ideal for specific use cases requiring visual currency elements and controlled minting processes.</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabs = document.querySelectorAll('.tab');
+            const sections = document.querySelectorAll('.comparison-section');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Remove active class from all tabs and sections
+                    tabs.forEach(t => t.classList.remove('active'));
+                    sections.forEach(s => s.classList.remove('active'));
+                    
+                    // Add active class to clicked tab
+                    this.classList.add('active');
+                    
+                    // Show corresponding section
+                    const tabId = this.getAttribute('data-tab');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+{
+  "timestamp": "2025-09-28T22:05:12.209443",
+  "test_duration_seconds": 302.09063386917114,
+  "miners_count": 5,
+  "wallets_count": 20,
+  "transactions_created": 0,
+  "blocks_mined": 0,
+  "transactions_per_second": 0.0,
+  "blocks_per_minute": 0.0,
+  "final_blockchain_status": null,
+  "miners": [
+    {
+      "id": 1,
+      "address": "LKC_7ca1c00342a39e05_2d1a3307",
+      "balance": 0,
+      "blocks_mined": 0,
+      "last_active": 1759064410.1178033
+    },
+    {
+      "id": 2,
+      "address": "LKC_39f3d4a217a1fc6f_3fff9c11",
+      "balance": 0,
+      "blocks_mined": 0,
+      "last_active": 1759064410.1178033
+    },
+    {
+      "id": 3,
+      "address": "LKC_ab9ac88c9b4ae92f_5f9522d6",
+      "balance": 0,
+      "blocks_mined": 0,
+      "last_active": 1759064410.1178033
+    },
+    {
+      "id": 4,
+      "address": "LKC_9e8707b137c0c651_a479ac1d",
+      "balance": 0,
+      "blocks_mined": 0,
+      "last_active": 1759064410.1178033
+    },
+    {
+      "id": 5,
+      "address": "LKC_280e7ce4e84ac5b3_c2718daf",
+      "balance": 0,
+      "blocks_mined": 0,
+      "last_active": 1759064410.1178033
+    }
+  ],
+  "wallets": [
+    {
+      "id": 1,
+      "address": "LKC_2fddcd470ee2c8ca_5717a5c2",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 2,
+      "address": "LKC_4412ecc01097bc44_bee87597",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 3,
+      "address": "LKC_a75fab4804dac922_4f3afd21",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 4,
+      "address": "LKC_cc0cf2769595a68a_ff3857f1",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 5,
+      "address": "LKC_25900b297b185df5_2c45a729",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 6,
+      "address": "LKC_9cd7055dd1511b08_650d23f2",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 7,
+      "address": "LKC_d0114f70cee13ffd_0cd78315",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 8,
+      "address": "LKC_9e591e4ac56f8c71_b1787aef",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 9,
+      "address": "LKC_2ac7eb8f985fad12_f35b09ff",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 10,
+      "address": "LKC_5e4a4aaa91305bb7_6c908e7e",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 11,
+      "address": "LKC_da5ea329b0998c85_e5b14625",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 12,
+      "address": "LKC_835e3df28a0e44c4_9ceca282",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 13,
+      "address": "LKC_1e3c3582c5309828_1ed12d01",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 14,
+      "address": "LKC_c156c814fa51d2c0_6caf7b5f",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 15,
+      "address": "LKC_fdbd9fd3e67c4f68_7d036ca6",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 16,
+      "address": "LKC_4282be26cb41c208_d7da6d72",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 17,
+      "address": "LKC_1e8f4d5d48fc198f_b3acdfb0",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 18,
+      "address": "LKC_2668352312869c7a_9590d8e4",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 19,
+      "address": "LKC_0442ec12b983bc52_3aaf2952",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    },
+    {
+      "id": 20,
+      "address": "LKC_97e50c48869a68a8_0c978581",
+      "balance": 1000,
+      "transactions_sent": 0,
+      "transactions_received": 0
+    }
+  ]
+}

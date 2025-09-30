@@ -1,0 +1,13 @@
+{
+  "id": 0,
+  "name": "miner_wallet_00",
+  "address": "2fd1b946d84e690ed1cc65f17ecc438eba70cea2",
+  "private_key": "aa492249b47b9138b5a8852674e81a1d51e2ebcbc88d72edc6bd5ac844f48b01",
+  "created_at": 1759255118.789329,
+  "balance": 1000.0,
+  "mined_blocks": 0,
+  "sent_transactions": 0,
+  "received_transactions": 0,
+  "total_sent": 0.0,
+  "total_received": 0.0
+}

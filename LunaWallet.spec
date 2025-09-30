@@ -7,22 +7,80 @@ block_cipher = None
 
 # Collect SSL certificates and required modules for wallet
 hiddenimports = [
-    'urllib',
-    'certifi',
-    'chardet',
-    'idna',
+    # For requests library (if you keep it)
     'requests',
+    'requests.models',
+    'requests.packages',
+    'requests.packages.urllib3',
+    'requests.packages.urllib3.contrib',
+    'requests.packages.urllib3.contrib.pyopenssl',
+    'requests.packages.urllib3.packages',
+    'requests.packages.urllib3.packages.ssl_match_hostname',
+    'requests.packages.urllib3.util',
+    'requests.packages.urllib3.util.ssl_',
+    'urllib3',
+    'urllib3.contrib',
+    'urllib3.contrib.pyopenssl',
+    'urllib3.packages',
+    'urllib3.packages.ssl_match_hostname',
+    'urllib3.util',
+    
+    # For standard library HTTP/network modules
     'http',
     'http.client',
+    'http.cookies',
+    'email',
+    'email.mime',
+    'email.mime.text',
+    'email.mime.multipart',
+    'email.mime.base',
+    'email.mime.nonmultipart',
+    'email.encoders',
+    'email.utils',
     'ssl',
     'socket',
+    
+    # For encoding/decoding
+    'chardet',
+    'charset_normalizer',
+    'idna',
+    'idna.idnadata',
+    
+    # For data handling
     'json',
-    'hashlib',
-    'secrets',
     'base64',
     'binascii',
+    
+    # For security
+    'hashlib',
+    'secrets',
+    'hmac',
+    
+    # For threading/concurrency
     'threading',
+    '_thread',
+    'queue',
+    
+    # For networking interfaces
     'netifaces',
+    
+    # Additional common modules that might be needed
+    'datetime',
+    'calendar',
+    'time',
+    're',
+    'io',
+    'zlib',
+    'gzip',
+    'ctypes',
+    'ctypes.util',
+    
+    # For URL parsing
+    'urllib',
+    'urllib.parse',
+    'urllib.request',
+    'urllib.response',
+    'urllib.error',
 ]
 
 # Collect certificate files

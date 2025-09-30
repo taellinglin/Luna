@@ -2,12 +2,22 @@
 """
 block.py - Block class for LinKoin blockchain
 """
+
 import json
 import hashlib
 import time
-from typing import List, Dict, Set
+from typing import List, Dict
+
+
 class Block:
-    def __init__(self, index: int, previous_hash: str, timestamp: float, transactions: List[Dict], nonce: int = 0):
+    def __init__(
+        self,
+        index: int,
+        previous_hash: str,
+        timestamp: float,
+        transactions: List[Dict],
+        nonce: int = 0,
+    ):
         self.index = index
         self.previous_hash = previous_hash
         self.timestamp = timestamp
@@ -30,33 +40,35 @@ class Block:
         start_time = time.time()
         hashes_tried = 0
         last_update = start_time
-        
+
         print(f"🎯 Mining Target: {target}")
         print("⛏️  Starting mining operation...")
-        
+
         while self.hash[:difficulty] != target:
             self.nonce += 1
             hashes_tried += 1
             self.hash = self.calculate_hash()
-            
+
             current_time = time.time()
             if current_time - last_update >= 1.0:  # Update every second
                 elapsed = current_time - start_time
                 self.hash_rate = hashes_tried / elapsed if elapsed > 0 else 0
-                
+
                 if progress_callback:
-                    progress_callback({
-                        'hashes': hashes_tried,
-                        'hash_rate': self.hash_rate,
-                        'current_hash': self.hash,
-                        'elapsed_time': elapsed
-                    })
-                
+                    progress_callback(
+                        {
+                            "hashes": hashes_tried,
+                            "hash_rate": self.hash_rate,
+                            "current_hash": self.hash,
+                            "elapsed_time": elapsed,
+                        }
+                    )
+
                 last_update = current_time
                 hashes_tried = 0
-        
+
         end_time = time.time()
         self.mining_time = end_time - start_time
         self.hash_rate = self.nonce / self.mining_time if self.mining_time > 0 else 0
-        
+
         return True

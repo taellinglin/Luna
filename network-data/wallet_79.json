@@ -1,0 +1,13 @@
+{
+  "id": 79,
+  "name": "miner_wallet_79",
+  "address": "d339447174c5b82ea61c385554152c1ec17d2004",
+  "private_key": "7adf392b402de5cb534e0c15c9cc2cd6c414036f3a9b5f89e8d9ab62ad5c8f92",
+  "created_at": 1759255118.8827639,
+  "balance": 1000.0,
+  "mined_blocks": 0,
+  "sent_transactions": 0,
+  "received_transactions": 0,
+  "total_sent": 0.0,
+  "total_received": 0.0
+}
