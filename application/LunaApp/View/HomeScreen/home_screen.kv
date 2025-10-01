@@ -1,0 +1,88 @@
+<HomeScreenView>:
+
+    UIShellLayout:
+
+        UI:
+            id: manager_screens
+
+            CScreen:
+                name: "dashboard"
+
+                CStackLayout:
+                    size_hint: 1, 1
+                    padding: dp(16)
+
+                    CLabel:
+                        text: "Luna Wallet with CarbonKivy"
+                        style: "heading_06"
+                        halign: "center"
+
+    UIShell:
+        id: left_panel_shell
+
+        UIShellLeftPanel:
+            panel_shell: left_panel_shell
+            visibility: shell_menu_btn.active
+
+            UIShellPanelLayout:
+
+                UIShellPanelSelectionLayout:
+
+                    UIShellPanelSelectionItem:
+                        text: "Dashboard"
+                        default: True
+                        right_icon: "dashboard"
+                        on_press:
+                            manager_screens.current = "dashboard"
+
+    UIShell:
+        id: shell
+
+        UIShellHeader:
+            id: shell_header
+
+            UIShellHeaderMenuButton:
+                id: shell_menu_btn
+
+            UIShellHeaderName:
+                text: "LunaWallet"
+                font_size: plex_16
+
+            CAnchorLayout:
+                anchor_x: "right"
+
+                CGridLayout:
+                    adaptive: [True, True]
+                    rows: 1
+
+                    UIShellButton:
+                        id: shell_search_btn
+                        icon: "search"
+                        role: "Large Productive"
+
+                    UIShellButton:
+                        id: shell_switcher_btn
+                        icon: "switcher"
+                        role: "Large Productive"
+
+    CBoxLayout:
+        orientation: "vertical"
+        size_hint_x: 1
+        adaptive: [False, True]
+        pos_hint: {"y": 0}
+        padding: dp(16)
+
+        CDivider:
+
+        CGridLayout:
+            rows: 1
+            size_hint_x: 1
+            adaptive: [False, True]
+
+            CAnchorLayout:
+                UIShellButton:
+                    icon: "home"
+
+            CAnchorLayout:
+                UIShellButton:
+                    icon: "wallet"
