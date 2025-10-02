@@ -35,6 +35,7 @@ class LunaApp(CarbonApp):
 
     def __init__(self, *args, **kwargs):
         super(LunaApp, self).__init__(*args, **kwargs)
+        self.theme = "Gray100"
         self.title = "Luna V1.0"
         self.load_all_kv_files(self.directory)
         self.loading_layout = LoadingLayout()
