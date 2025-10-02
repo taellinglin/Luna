@@ -1,0 +1,11 @@
+{
+  "node_id": "354c0520-d8e9-4d1c-b86d-4e7290c9ee9d",
+  "miner_address": "LUN_b9f5a43432da8474",
+  "created_at": 1759345687.1762486,
+  "bills_mined": [],
+  "auto_mine": false,
+  "mined_transactions": {},
+  "mining_pool": true,
+  "pool_address": "http://localhost:9333",
+  "difficulty": 2
+}

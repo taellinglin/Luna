@@ -1,0 +1,17 @@
+{
+  "node_id": "62a4f1af-7727-4b3c-a729-5e2f9a589b0b",
+  "miner_address": "LUN_e2eaf51ef3bbcbc1",
+  "difficulty": 4,
+  "mining_reward": 1,
+  "node_version": "1.0.0",
+  "created_at": 1759344455.8412454,
+  "last_sync": 1759344458.5213802,
+  "bills_mined": [],
+  "verification_links": {},
+  "auto_mine": false,
+  "peer_port": 9333,
+  "mined_transactions": {},
+  "api_base_url": "https://bank.linglin.art",
+  "mempool_file": "mempool.json",
+  "last_mempool_sync": 1759344458.5213802
+}
