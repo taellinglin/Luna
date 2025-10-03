@@ -1,17 +1,397 @@
 {
-  "node_id": "62a4f1af-7727-4b3c-a729-5e2f9a589b0b",
-  "miner_address": "LUN_e2eaf51ef3bbcbc1",
+  "miner_address": "LUN_2ee204ec85450a45_c3b9fbc5",
   "difficulty": 4,
   "mining_reward": 1,
-  "node_version": "1.0.0",
+  "transaction_fee": 1e-06,
+  "auto_mine": true,
+  "use_cuda": true,
+  "bills_mined": [
+    {
+      "block_hash": "00002237327b7b0e9f10d51ef62d4092aeebb804a53aa2e33e1ee39deb1823fa",
+      "amount": 1.0,
+      "timestamp": 1759446555.9680502,
+      "date": "2025-10-03 08:09:15",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "000017f96a962858ce34a2093b5c56063b192b7f3ee2afbe19c912d04b9a3240",
+      "amount": 1.0,
+      "timestamp": 1759446568.363824,
+      "date": "2025-10-03 08:09:28",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00003be76831181564a784bb9a2f3805286814a229f3168b3d2050441bb67fd8",
+      "amount": 1.0,
+      "timestamp": 1759446580.6205165,
+      "date": "2025-10-03 08:09:40",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000b9220d5a0d47add2ccaf019dfac0d2c6e3b617ddd8bd67fab9285bcd9ca8",
+      "amount": 1.0,
+      "timestamp": 1759446593.4314759,
+      "date": "2025-10-03 08:09:53",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00002f12d9ad5d443ecad54ca813bc6651571d9ff34f6b037a7b3040e321c547",
+      "amount": 1.0,
+      "timestamp": 1759446607.6008563,
+      "date": "2025-10-03 08:10:07",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00008464ca6558dc3320c3927cd263c8c49b7458eedfa55cc658ddca18b53766",
+      "amount": 1.0,
+      "timestamp": 1759446618.9010894,
+      "date": "2025-10-03 08:10:18",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00003c0c2f046c2d94152a93106a061c3496249e9a68474615ada471711bb6b8",
+      "amount": 1.0,
+      "timestamp": 1759446630.595569,
+      "date": "2025-10-03 08:10:30",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "000005e59b07a849fd277e7fc1a015b3349f2a4c42d47155b450bc59ed5cec76",
+      "amount": 1.0,
+      "timestamp": 1759446641.9586966,
+      "date": "2025-10-03 08:10:41",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000e3e2f1831acc0e5a305f1cd7b4f3597d46dd25d1012d51632cc3c89ee2b4",
+      "amount": 1.0,
+      "timestamp": 1759446655.0513673,
+      "date": "2025-10-03 08:10:55",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "000014424fa500d9e8fbe5bf5e5621644397a49cbb72a90d463901cf109362f3",
+      "amount": 1.0,
+      "timestamp": 1759446666.7585795,
+      "date": "2025-10-03 08:11:06",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000e571f3761a584ee594ecaa318d572b1eb0cc98bb975f13e4f4316569862b",
+      "amount": 1.0,
+      "timestamp": 1759446678.1963055,
+      "date": "2025-10-03 08:11:18",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00008b816c6263fa9992a82fbdb05e9acf529138467f05fafb0f010b4f7a7642",
+      "amount": 1.0,
+      "timestamp": 1759446689.5436938,
+      "date": "2025-10-03 08:11:29",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000fbb3339a125f061849fcd96224147eb848044ddb2e8713e9fb1b7829fdb0",
+      "amount": 1.0,
+      "timestamp": 1759446702.42858,
+      "date": "2025-10-03 08:11:42",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00006d6be88a599432569debc6bd7f14227916ff5761a30050da3fc4464a3e82",
+      "amount": 1.0,
+      "timestamp": 1759446714.495371,
+      "date": "2025-10-03 08:11:54",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000afa4b5b7fd59ddb59eec43fad2e3bdd12a9b5af40ada0698b9a9ade89884",
+      "amount": 1.0,
+      "timestamp": 1759446725.8933032,
+      "date": "2025-10-03 08:12:05",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000b8902c79ebd510dd3e11a18d74a7b12e3ec53fcdda738d30ee56704acaf1",
+      "amount": 1.0,
+      "timestamp": 1759446738.707621,
+      "date": "2025-10-03 08:12:18",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "000026224f82498fb39ccbebca35634848fb574a9e412747a19f0c73acb0b302",
+      "amount": 1.0,
+      "timestamp": 1759446750.0940206,
+      "date": "2025-10-03 08:12:30",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "000031b58b5fb33447dc6e552fb75bbd1261d5bf4c6b5efc8d078cb9af38a3a5",
+      "amount": 1.0,
+      "timestamp": 1759446762.7900605,
+      "date": "2025-10-03 08:12:42",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000ff45535eac08787d5b87644338c9faf08abbbcada99244ada88b0256bd13",
+      "amount": 1.0,
+      "timestamp": 1759446774.8182983,
+      "date": "2025-10-03 08:12:54",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000169983c714859f24c57af5dad8f9595618d9e112ba24f48cada1d759ecf4",
+      "amount": 1.0,
+      "timestamp": 1759446786.0973742,
+      "date": "2025-10-03 08:13:06",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00003d8f64bc589906f4000f5a1e3a3395fdf0097e74360709aca6089afe6272",
+      "amount": 1.0,
+      "timestamp": 1759446798.572472,
+      "date": "2025-10-03 08:13:18",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "000007ee6e52051469de4e8825a9648ba9075177f57c8d90eeaa7e3be4d03324",
+      "amount": 1.0,
+      "timestamp": 1759446810.150741,
+      "date": "2025-10-03 08:13:30",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00005cade6f45e64176f17d8086ab79d1e8f793dd9eeaed55c38333b9094444a",
+      "amount": 1.0,
+      "timestamp": 1759446822.4212961,
+      "date": "2025-10-03 08:13:42",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00002435ce98d910798ea15a6fc5f49ea97713350a7c4658f9f61dcaa99067cd",
+      "amount": 1.0,
+      "timestamp": 1759446837.6975365,
+      "date": "2025-10-03 08:13:57",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000742aaa425a1893a73255e4d86d95c26730a47758218b90a19382b5d45e33",
+      "amount": 1.0,
+      "timestamp": 1759446849.035054,
+      "date": "2025-10-03 08:14:09",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00006a0621e4520b13a08479bbf4dded6417b696d17ef9575bcf8b4346a67005",
+      "amount": 1.0,
+      "timestamp": 1759446860.327622,
+      "date": "2025-10-03 08:14:20",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "000079774d8337c862e08a315e7c3bbc1a098f802d31793a52faf5a807976ac9",
+      "amount": 1.0,
+      "timestamp": 1759446872.1719768,
+      "date": "2025-10-03 08:14:32",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00001162cc894dd5a83ad39fcf04f9c08ff0722f5b40f57f28274f801e2b653d",
+      "amount": 1.0,
+      "timestamp": 1759446884.958185,
+      "date": "2025-10-03 08:14:44",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000b8e3965d5f18624242f40c38200c70bd7d8d65d3a1a105ffa9956379f662",
+      "amount": 1.0,
+      "timestamp": 1759446896.4738395,
+      "date": "2025-10-03 08:14:56",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00004210db8bfa5ef03e5f40f8b858e6331227de0c0d44e9248660c62d321881",
+      "amount": 1.0,
+      "timestamp": 1759446909.1300602,
+      "date": "2025-10-03 08:15:09",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00000e5c59e290d3f3007e104d088044ecdb0442c05c63f4fa9837d94ef7c221",
+      "amount": 1.0,
+      "timestamp": 1759446922.8158722,
+      "date": "2025-10-03 08:15:22",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000188314050569ef6cb3e9be600342c75b874a64e11b274a572a952c047143",
+      "amount": 1.0,
+      "timestamp": 1759446935.452592,
+      "date": "2025-10-03 08:15:35",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000fecdc027348a14eb476bda98657c0511627343081743a43e9e820adcd68f",
+      "amount": 1.0,
+      "timestamp": 1759446947.279026,
+      "date": "2025-10-03 08:15:47",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000701150b1f142931b6ae7f99b209f47192599f840ec9ebaaf364eb69a3354",
+      "amount": 1.0,
+      "timestamp": 1759446958.8433008,
+      "date": "2025-10-03 08:15:58",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000e1beb120e900df572061c6bbb8c0cd27715594bd58236e8871ae74fa75e0",
+      "amount": 1.0,
+      "timestamp": 1759446970.335428,
+      "date": "2025-10-03 08:16:10",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "000095965fd920368da9631ee9aaeafc097b903f62e2421898f20ed21750153a",
+      "amount": 1.0,
+      "timestamp": 1759446981.5705078,
+      "date": "2025-10-03 08:16:21",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000e9a3cb34fdae80712e3210b0d8703e29ef770621f42b795f5f8348c73351",
+      "amount": 1.0,
+      "timestamp": 1759446993.519115,
+      "date": "2025-10-03 08:16:33",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000faf25e0dc723fc25a6fab9ec8f6ce3f198f7c4b6bb4b62988939d13453e8",
+      "amount": 1.0,
+      "timestamp": 1759447006.1729035,
+      "date": "2025-10-03 08:16:46",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000ca5ca84c17acb67933579687591b55ebb2b110136058053c705863cfe2cf",
+      "amount": 1.0,
+      "timestamp": 1759447017.9333842,
+      "date": "2025-10-03 08:16:57",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00006f57b8b3416e16755691d1b9131ee5fffbb3e0f9086f417c86b8db85aff1",
+      "amount": 1.0,
+      "timestamp": 1759447031.2293723,
+      "date": "2025-10-03 08:17:11",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00000420067ef067b365a1f9038b2a212868be2c682e3911fcdc1e1abab9e03c",
+      "amount": 1.0,
+      "timestamp": 1759447043.6353102,
+      "date": "2025-10-03 08:17:23",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000926cff214b0c4523c5247cf79c7d1a8deab7d05c166398477b16d6cd7277",
+      "amount": 1.0,
+      "timestamp": 1759447055.5746372,
+      "date": "2025-10-03 08:17:35",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000c0e1f9f2654d638c68b2a8ea7c77f89764d869af86684bc2ed331e3fe3b8",
+      "amount": 1.0,
+      "timestamp": 1759447067.7218268,
+      "date": "2025-10-03 08:17:47",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000033c61c94cb43d68821912dace69a58efe65697c665fb38dd0168285d5d1",
+      "amount": 1.0,
+      "timestamp": 1759447079.86298,
+      "date": "2025-10-03 08:17:59",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00000ce1944735b6ad75a5ad429abfe3737afe70ef3ea4aef36292434cce40a2",
+      "amount": 1.0,
+      "timestamp": 1759447094.9868245,
+      "date": "2025-10-03 08:18:14",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "00004c521eac45520e6761a30244c65bfd648ddc7e9ca624329610385348ad93",
+      "amount": 1.0,
+      "timestamp": 1759447108.7007318,
+      "date": "2025-10-03 08:18:28",
+      "transactions_mined": 0
+    },
+    {
+      "block_hash": "0000a27acfd65a43c76fa6f4f25ecc7f1f4e75fbbad29567fb6d63be4c3782ee",
+      "amount": 1.000005,
+      "timestamp": 1759447214.5513947,
+      "date": "2025-10-03 08:20:14",
+      "transactions_mined": 5,
+      "reward_tx_hash": "754176126ab3eeb5f4793d9d4b8f46b453920cc207ba3a0ecfd1cdfc56c9be3e"
+    },
+    {
+      "block_hash": "00009235af072f358e63693fc8e1a1c80659d343c7ed5af982ca8574bef2de68",
+      "amount": 1.00001,
+      "timestamp": 1759447231.4621544,
+      "date": "2025-10-03 08:20:31",
+      "transactions_mined": 10,
+      "reward_tx_hash": "328e7535fe91c64c8366d05d1b4ba67cd82a1032b9f79a9c5f56179b3e7878fc"
+    },
+    {
+      "block_hash": "00001906c0855c5712a64aaaa136fbfde4192af6934c4dc2d8484cc6b148d767",
+      "amount": 1.00002,
+      "timestamp": 1759447272.4375117,
+      "date": "2025-10-03 08:21:12",
+      "transactions_mined": 20,
+      "reward_tx_hash": "942cdb439c6e26f3e52b397a4e563d7209471e433a11793efc085d25cdc6299a"
+    },
+    {
+      "block_hash": "0000e2c2090fffa3a87166ccd562d4ff9d8069aed11233aaaeca680597fcbd66",
+      "amount": 1.00004,
+      "timestamp": 1759447419.329134,
+      "date": "2025-10-03 08:23:39",
+      "transactions_mined": 40,
+      "reward_tx_hash": "535f7c8a2ff6662b6c44b424a5479f892b70e2a0d32e7ff627ce21fb1d6e4a39"
+    }
+  ],
   "created_at": 1759344455.8412454,
-  "last_sync": 1759344458.5213802,
-  "bills_mined": [],
-  "verification_links": {},
-  "auto_mine": false,
-  "peer_port": 9333,
-  "mined_transactions": {},
-  "api_base_url": "https://bank.linglin.art",
-  "mempool_file": "mempool.json",
-  "last_mempool_sync": 1759344458.5213802
+  "last_sync": 1759502500.232005,
+  "node_version": "1.0.0",
+  "reward_transactions_mined": [
+    {
+      "hash": "754176126ab3eeb5f4793d9d4b8f46b453920cc207ba3a0ecfd1cdfc56c9be3e",
+      "amount": 1.000005,
+      "block_hash": "0000a27acfd65a43c76fa6f4f25ecc7f1f4e75fbbad29567fb6d63be4c3782ee",
+      "timestamp": 1759447214.5544019,
+      "date": "2025-10-03 08:20:14"
+    },
+    {
+      "hash": "328e7535fe91c64c8366d05d1b4ba67cd82a1032b9f79a9c5f56179b3e7878fc",
+      "amount": 1.00001,
+      "block_hash": "00009235af072f358e63693fc8e1a1c80659d343c7ed5af982ca8574bef2de68",
+      "timestamp": 1759447231.4656615,
+      "date": "2025-10-03 08:20:31"
+    },
+    {
+      "hash": "942cdb439c6e26f3e52b397a4e563d7209471e433a11793efc085d25cdc6299a",
+      "amount": 1.00002,
+      "block_hash": "00001906c0855c5712a64aaaa136fbfde4192af6934c4dc2d8484cc6b148d767",
+      "timestamp": 1759447272.4415138,
+      "date": "2025-10-03 08:21:12"
+    },
+    {
+      "hash": "535f7c8a2ff6662b6c44b424a5479f892b70e2a0d32e7ff627ce21fb1d6e4a39",
+      "amount": 1.00004,
+      "block_hash": "0000e2c2090fffa3a87166ccd562d4ff9d8069aed11233aaaeca680597fcbd66",
+      "timestamp": 1759447419.4175675,
+      "date": "2025-10-03 08:23:39"
+    }
+  ]
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Luna Wallet - Integrated with Luna Node Blockchain
+Luna Wallet - Blockchain-First Implementation with Auto-Setup
+Automatically generates private keys for discovered wallets and provides full wallet setup
 """
 
 import os
@@ -11,6 +12,9 @@ import hashlib
 import secrets
 import qrcode
 import datetime
+import threading
+import requests
+from urllib.parse import urljoin
 
 # ROYGBIV Color Scheme 🌈
 COLORS = {
@@ -91,23 +95,322 @@ class LunaWallet:
     def __init__(self):
         debug_log("Initializing LunaWallet", "INFO")
         self.wallet_file = "wallet.json"
+        self.pending_tx_file = "pending_transactions.json"
         self.node_data_dir = DataManager.get_data_dir()
+        
+        # Load existing wallet or create empty
         self.addresses = self.load_wallet() or []
-
+        self.pending_transactions = DataManager.load_json(self.pending_tx_file, [])
+        
+        # First-time setup check
         if not self.addresses:
-            debug_log("No wallet found, creating primary wallet", "INFO")
-            self.create_wallet("Primary Wallet")
-
+            self.first_time_setup()
+        else:
+            # Scan blockchain and build wallet data
+            self.scan_blockchain_for_wallets()
+        
+        # Start auto-sync thread
+        self.auto_sync_thread = threading.Thread(target=self.auto_sync_worker, daemon=True)
+        self.auto_sync_thread.start()
+        
         debug_log("Luna Wallet Initialized", "INFO")
         self.show_status()
 
+    def first_time_setup(self):
+        """First-time wallet setup with automatic address generation"""
+        print(color_text("\n🎉 Welcome to Luna Wallet!", COLORS["BOLD"]))
+        print(color_text("🔍 Setting up your wallet for the first time...", COLORS["B"]))
+        
+        # Scan blockchain to discover addresses
+        print(color_text("📥 Scanning blockchain for existing addresses...", COLORS["Y"]))
+        self.scan_blockchain_for_wallets()
+        
+        if not self.addresses:
+            print(color_text("🤔 No existing addresses found in blockchain", COLORS["O"]))
+            print(color_text("💫 Creating your first wallet...", COLORS["B"]))
+            self.create_wallet("My First Wallet")
+        else:
+            print(color_text(f"✅ Found {len(self.addresses)} addresses in blockchain", COLORS["G"]))
+            
+            # Check if any discovered wallets need private keys
+            wallets_without_keys = [w for w in self.addresses if w.get("private_key") is None]
+            if wallets_without_keys:
+                print(color_text(f"🔑 Generating private keys for {len(wallets_without_keys)} discovered wallets...", COLORS["B"]))
+                self.generate_keys_for_discovered_wallets()
+            
+            print(color_text("🎊 Wallet setup complete!", COLORS["G"]))
+        
+        # Create backup immediately
+        print(color_text("💾 Creating initial backup...", COLORS["I"]))
+        self.backup_wallet()
+
+    def generate_keys_for_discovered_wallets(self):
+        """Generate private keys for discovered wallets that don't have them"""
+        for wallet in self.addresses:
+            if wallet.get("private_key") is None and wallet.get("discovered"):
+                debug_log(f"Generating keys for discovered wallet: {wallet['address']}", "INFO")
+                
+                # Generate private key
+                private_key = secrets.token_hex(32)
+                public_key = hashlib.sha256(private_key.encode()).hexdigest()
+                
+                # Update wallet with generated keys
+                wallet["private_key"] = private_key
+                wallet["public_key"] = public_key
+                wallet["discovered"] = False  # Now it's a fully functional wallet
+                wallet["label"] = f"My {wallet['label']}"  # Personalize the label
+                
+                print(color_text(f"✅ Generated keys for: {wallet['address']}", COLORS["G"]))
+        
+        self.save_wallet()
+
+    def auto_sync_worker(self):
+        """Background thread for automatic synchronization"""
+        while True:
+            try:
+                time.sleep(60)  # Sync every 60 seconds
+                debug_log("Auto-sync: Checking for blockchain updates", "DEBUG")
+                self.scan_blockchain_for_wallets()
+            except Exception as e:
+                debug_log(f"Auto-sync error: {e}", "ERROR")
+
+    def scan_blockchain_for_wallets(self):
+        """Scan the entire blockchain to discover wallet addresses and build wallet data"""
+        debug_log("Scanning blockchain for wallet addresses and rewards", "INFO")
+        
+        blockchain_data = self.get_blockchain_data()
+        if not blockchain_data:
+            debug_log("No blockchain data available", "WARNING")
+            return
+        
+        # Dictionary to track all discovered addresses and their transactions
+        discovered_addresses = {}
+        
+        # Scan every block for transactions and rewards
+        for block_index, block in enumerate(blockchain_data):
+            if not isinstance(block, dict):
+                continue
+                
+            transactions = block.get("transactions", [])
+            block_timestamp = block.get("timestamp", time.time())
+            block_reward = block.get("reward", 0)
+            miner_address = block.get("miner", "")
+            
+            # Process block reward as a special transaction
+            if miner_address and block_reward > 0:
+                reward_tx = {
+                    "type": "reward",
+                    "from": "network",
+                    "to": miner_address,
+                    "amount": float(block_reward),
+                    "timestamp": block_timestamp,
+                    "block_height": block_index,
+                    "hash": f"reward_{block_index}_{int(block_timestamp)}",
+                    "status": "confirmed",
+                    "confirmations": len(blockchain_data) - block_index,
+                    "memo": f"Block #{block_index} mining reward"
+                }
+                transactions.append(reward_tx)
+            
+            # Process regular transactions
+            for tx in transactions:
+                if not isinstance(tx, dict):
+                    continue
+                
+                # Extract addresses from transaction using all possible field names
+                addresses_in_tx = set()
+                
+                # Check all possible address fields
+                for field in ['from', 'to', 'sender', 'receiver', 'from_address', 'to_address', 'miner', 'issued_to']:
+                    address = tx.get(field)
+                    if address and isinstance(address, str) and address.startswith(('LKC_', 'LUN_')):
+                        addresses_in_tx.add(address)
+                
+                # Process each address found in this transaction
+                for address in addresses_in_tx:
+                    if address not in discovered_addresses:
+                        # New address discovered - create wallet entry
+                        discovered_addresses[address] = {
+                            "address": address,
+                            "label": f"Wallet_{address[-8:]}",
+                            "public_key": None,  # Will be generated
+                            "private_key": None,  # Will be generated
+                            "balance": 0,
+                            "pending_balance": 0,
+                            "confirmed_balance": 0,
+                            "total_received": 0,
+                            "total_sent": 0,
+                            "reward_income": 0,
+                            "transactions": [],
+                            "created": block_timestamp,
+                            "discovered": True  # Mark as discovered from blockchain
+                        }
+                    
+                    # Add this transaction to the address's history
+                    tx_copy = tx.copy()
+                    tx_copy["block_height"] = block_index
+                    tx_copy["timestamp"] = block_timestamp
+                    tx_copy["status"] = "confirmed"
+                    tx_copy["confirmations"] = len(blockchain_data) - block_index
+                    
+                    # Add to transactions list if not already there (by hash)
+                    existing_tx_hashes = [t.get("hash") for t in discovered_addresses[address]["transactions"]]
+                    if tx_copy.get("hash") not in existing_tx_hashes:
+                        discovered_addresses[address]["transactions"].append(tx_copy)
+        
+        # Calculate balances and statistics for all discovered addresses
+        for address, wallet_data in discovered_addresses.items():
+            stats = self.calculate_wallet_stats(wallet_data["transactions"], address)
+            wallet_data.update(stats)
+            debug_log(f"Discovered address: {address} with balance: {wallet_data['balance']} LKC", "INFO")
+        
+        # Merge with existing wallet data (preserve private keys for addresses we control)
+        self.merge_discovered_wallets(discovered_addresses)
+        
+        # Update pending transactions status
+        self.update_pending_transactions_status()
+        
+        debug_log(f"Blockchain scan complete. Found {len(discovered_addresses)} addresses", "INFO")
+
+    def calculate_wallet_stats(self, transactions, address):
+        """Calculate comprehensive wallet statistics from transaction history"""
+        stats = {
+            "balance": 0,
+            "confirmed_balance": 0,
+            "pending_balance": 0,
+            "total_received": 0,
+            "total_sent": 0,
+            "reward_income": 0,
+            "transaction_count": len(transactions)
+        }
+        
+        for tx in transactions:
+            # Check all possible address fields
+            from_addr = tx.get('from') or tx.get('sender') or tx.get('from_address')
+            to_addr = tx.get('to') or tx.get('receiver') or tx.get('to_address')
+            amount = float(tx.get('amount', 0))
+            tx_type = tx.get('type', 'transfer')
+            status = tx.get('status', 'confirmed')
+            
+            # Track rewards separately
+            if tx_type == 'reward' and to_addr == address:
+                stats["reward_income"] += amount
+            
+            # Calculate balances based on transaction status
+            if status == 'confirmed':
+                if from_addr == address:
+                    stats["balance"] -= amount
+                    stats["confirmed_balance"] -= amount
+                    stats["total_sent"] += amount
+                if to_addr == address:
+                    stats["balance"] += amount
+                    stats["confirmed_balance"] += amount
+                    stats["total_received"] += amount
+            elif status == 'pending':
+                if from_addr == address:
+                    stats["pending_balance"] -= amount
+                if to_addr == address:
+                    stats["pending_balance"] += amount
+        
+        return stats
+
+    def merge_discovered_wallets(self, discovered_addresses):
+        """Merge discovered addresses with existing wallet data"""
+        debug_log("Merging discovered wallets with existing data", "DEBUG")
+        
+        # Create a map of existing addresses for quick lookup
+        existing_address_map = {wallet["address"]: wallet for wallet in self.addresses}
+        
+        merged_wallets = []
+        
+        # Add all discovered addresses
+        for address, discovered_wallet in discovered_addresses.items():
+            if address in existing_address_map:
+                # Merge: keep existing wallet data but update stats and transactions
+                existing_wallet = existing_address_map[address]
+                # Update transactions and stats but preserve keys
+                existing_wallet["transactions"] = discovered_wallet["transactions"]
+                existing_wallet.update(discovered_wallet)
+                # Preserve private key and public key if we have them
+                if existing_wallet.get("private_key"):
+                    discovered_wallet["private_key"] = existing_wallet["private_key"]
+                    discovered_wallet["public_key"] = existing_wallet["public_key"]
+                    discovered_wallet["discovered"] = False  # Now it's a full wallet
+                merged_wallets.append(existing_wallet)
+                debug_log(f"Merged existing wallet: {address}", "DEBUG")
+            else:
+                # Add new discovered wallet
+                merged_wallets.append(discovered_wallet)
+                debug_log(f"Added discovered wallet: {address}", "DEBUG")
+        
+        # Add any existing wallets that weren't found in blockchain (zero balance wallets)
+        for address, wallet in existing_address_map.items():
+            if address not in discovered_addresses:
+                # This wallet has no transactions in blockchain, set balances to 0
+                wallet.update({
+                    "balance": 0,
+                    "confirmed_balance": 0,
+                    "pending_balance": 0,
+                    "total_received": 0,
+                    "total_sent": 0,
+                    "reward_income": 0
+                })
+                merged_wallets.append(wallet)
+                debug_log(f"Added zero-balance wallet: {address}", "DEBUG")
+        
+        self.addresses = merged_wallets
+        self.save_wallet()
+
+    def update_pending_transactions_status(self):
+        """Update status of pending transactions based on blockchain"""
+        debug_log("Updating pending transactions status", "DEBUG")
+        
+        blockchain_data = self.get_blockchain_data()
+        if not blockchain_data:
+            return
+        
+        updated = False
+        
+        for pending_tx in self.pending_transactions[:]:
+            tx_hash = pending_tx.get("hash")
+            
+            # Check if transaction is now in blockchain
+            if self.find_transaction_in_blockchain(tx_hash):
+                pending_tx["status"] = "confirmed"
+                pending_tx["confirmations"] = 1  # At least 1 confirmation
+                updated = True
+                debug_log(f"Pending transaction confirmed: {tx_hash}", "DEBUG")
+            elif pending_tx.get("timestamp", 0) < time.time() - 3600:  # 1 hour old
+                pending_tx["status"] = "failed"
+                updated = True
+                debug_log(f"Pending transaction failed (timeout): {tx_hash}", "DEBUG")
+        
+        if updated:
+            self.save_pending_transactions()
+
+    def find_transaction_in_blockchain(self, tx_hash):
+        """Check if a transaction exists in the blockchain"""
+        blockchain_data = self.get_blockchain_data()
+        if not blockchain_data:
+            return False
+        
+        for block in blockchain_data:
+            transactions = block.get("transactions", [])
+            for tx in transactions:
+                if tx.get("hash") == tx_hash:
+                    return True
+        return False
+
     def create_wallet(self, label=""):
+        """Create a new wallet with full key generation"""
         debug_log(f"Creating new wallet with label: {label}", "INFO")
         private_key = secrets.token_hex(32)
         debug_log("Generated private key", "DEBUG")
         public_key = hashlib.sha256(private_key.encode()).hexdigest()
         debug_log("Generated public key", "DEBUG")
-        address = f"LKC_{public_key[:16]}_{secrets.token_hex(4)}"
+        
+        # Generate LUN address (like your discovered format)
+        address = f"LUN_{public_key[:16]}_{secrets.token_hex(4)}"
         debug_log(f"Generated address: {address}", "DEBUG")
 
         wallet_data = {
@@ -116,8 +419,14 @@ class LunaWallet:
             "public_key": public_key,
             "private_key": private_key,
             "balance": 0,
+            "confirmed_balance": 0,
+            "pending_balance": 0,
+            "total_received": 0,
+            "total_sent": 0,
+            "reward_income": 0,
             "transactions": [],
             "created": time.time(),
+            "discovered": False
         }
 
         self.addresses.append(wallet_data)
@@ -127,6 +436,7 @@ class LunaWallet:
         qr_filename = self.generate_qr_code(address, label)
 
         print(color_text(f"✅ New wallet created: {address}", COLORS["G"]))
+        print(color_text(f"🔑 Private key generated and secured", COLORS["G"]))
         print(color_text(f"📄 QR code saved: {qr_filename}", COLORS["B"]))
         return address
 
@@ -170,10 +480,10 @@ class LunaWallet:
     def save_wallet(self):
         debug_log("Saving wallet data", "DEBUG")
         DataManager.save_json(self.wallet_file, self.addresses)
-        # Create backup
-        backup_file = f"wallet_backup_{int(time.time())}.json"
-        DataManager.save_json(backup_file, self.addresses)
-        debug_log(f"Wallet backup created: {backup_file}", "DEBUG")
+
+    def save_pending_transactions(self):
+        debug_log("Saving pending transactions", "DEBUG")
+        DataManager.save_json(self.pending_tx_file, self.pending_transactions)
 
     def backup_wallet(self):
         """Explicit wallet backup command"""
@@ -189,17 +499,49 @@ class LunaWallet:
             print(color_text("❌ Failed to create wallet backup", COLORS["R"]))
             return False
 
+    def download_blockchain(self):
+        """Download blockchain from the web server"""
+        debug_log("Downloading blockchain from server", "INFO")
+        try:
+            url = "https://bank.linglin.art/blockchain"
+            debug_log(f"Downloading from: {url}", "DEBUG")
+            
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+            
+            blockchain_data = response.json()
+            debug_log(f"Downloaded blockchain with {len(blockchain_data) if isinstance(blockchain_data, list) else 'unknown'} items", "DEBUG")
+            
+            # Save to local file
+            blockchain_file = os.path.join(self.node_data_dir, "blockchain.json")
+            with open(blockchain_file, "w") as f:
+                json.dump(blockchain_data, f, indent=2)
+            
+            debug_log(f"Blockchain saved to: {blockchain_file}", "DEBUG")
+            print(color_text("✅ Blockchain downloaded successfully", COLORS["G"]))
+            return blockchain_data
+            
+        except Exception as e:
+            debug_log(f"Error downloading blockchain: {e}", "ERROR")
+            print(color_text(f"❌ Failed to download blockchain: {e}", COLORS["R"]))
+            return None
+
     def get_blockchain_data(self):
-        """Load blockchain data directly from node's data files - COMPLETELY REWRITTEN"""
-        debug_log("Loading blockchain data - ENHANCED", "DEBUG")
+        """Load blockchain data - download if not exists"""
+        debug_log("Loading blockchain data", "DEBUG")
         try:
             blockchain_file = os.path.join(self.node_data_dir, "blockchain.json")
             debug_log(f"Looking for blockchain file: {blockchain_file}", "DEBUG")
 
             if not os.path.exists(blockchain_file):
-                debug_log("Blockchain file not found", "ERROR")
-                print(f"❌ Blockchain file not found at: {blockchain_file}")
-                return []
+                debug_log("Blockchain file not found, downloading...", "INFO")
+                print(color_text("📥 Downloading blockchain from server...", COLORS["Y"]))
+                downloaded_data = self.download_blockchain()
+                if downloaded_data:
+                    return downloaded_data
+                else:
+                    debug_log("Blockchain download failed", "ERROR")
+                    return []
 
             with open(blockchain_file, "r") as f:
                 data = json.load(f)
@@ -220,10 +562,6 @@ class LunaWallet:
                     return chain
                 else:
                     debug_log("Dictionary but no chain/blocks key", "ERROR")
-                    print(
-                        "❌ Blockchain file has dictionary structure but no 'chain' or 'blocks' key"
-                    )
-                    print(f"Available keys: {list(data.keys())}")
                     return []
             elif isinstance(data, list):
                 debug_log("Found blockchain as direct list", "DEBUG")
@@ -238,172 +576,17 @@ class LunaWallet:
             print(f"❌ Error loading blockchain: {e}")
             return []
 
-    def get_node_config(self):
-        """Load node configuration"""
-        debug_log("Loading node configuration", "DEBUG")
-        try:
-            config_file = os.path.join(self.node_data_dir, "node_config.json")
-            debug_log(f"Looking for config file: {config_file}", "DEBUG")
-            if os.path.exists(config_file):
-                with open(config_file, "r") as f:
-                    data = json.load(f)
-                debug_log("Node config loaded successfully", "DEBUG")
-                return data
-            debug_log("Node config file not found", "DEBUG")
-            return {}
-        except Exception as e:
-            debug_log(f"Error loading node config: {e}", "ERROR")
-            return {}
-
-    def get_address_balance(self, address):
-        """Calculate balance for an address - UPDATED FOR ACTUAL BLOCKCHAIN"""
-        blockchain_data = self.get_blockchain_data()
-        if not blockchain_data:
-            print("❌ No blockchain data available")
-            return 0
-
-        balance = 0
-        transactions_found = 0
-
-        print(f"🔍 Scanning {len(blockchain_data)} blocks for address: {address}")
-
-        for block_index, block in enumerate(blockchain_data):
-            if not isinstance(block, dict):
-                continue
-
-            # Get transactions - try different field names
-            transactions = block.get("transactions", [])
-            if not transactions:
-                continue
-
-            for tx in transactions:
-                if not isinstance(tx, dict):
-                    continue
-
-                # Use the actual field names from your blockchain
-                from_address = tx.get("from_address", "")
-                to_address = tx.get("to_address", "")
-                amount = tx.get("amount", 0)
-
-                # Also check alternative field names
-                if not from_address:
-                    from_address = tx.get("from", "")
-                if not to_address:
-                    to_address = tx.get("to", "")
-
-                # Check if this transaction involves our address
-                if from_address == address or to_address == address:
-                    transactions_found += 1
-                    print(f"📄 TX found in block {block_index}:")
-                    print(f"   From: {from_address}")
-                    print(f"   To: {to_address}")
-                    print(f"   Amount: {amount}")
-                    print(f"   TX ID: {tx.get('transaction_id', 'N/A')}")
-
-                    # Update balance
-                    if from_address == address:
-                        balance -= amount
-                        print(f"   ➖ Outgoing: -{amount}")
-                    if to_address == address:
-                        balance += amount
-                        print(f"   ➕ Incoming: +{amount}")
-
-        print(
-            f"💰 Final balance: {balance} LKC (found {transactions_found} transactions)"
-        )
-        return balance
-
     def sync_with_node(self):
-        """Sync wallet with blockchain data from node's files"""
-        debug_log("Starting sync with node", "INFO")
-
-        blockchain_data = self.get_blockchain_data()
-        if not blockchain_data:
-            print(
-                color_text(
-                    "❌ No blockchain data found - make sure luna_node.py has been run",
-                    COLORS["R"],
-                )
-            )
-            return False
-
-        # Determine chain length
-        if isinstance(blockchain_data, list):
-            chain_height = len(blockchain_data)
-        else:
-            chain_height = 0
-
-        debug_log(f"Blockchain height: {chain_height}", "DEBUG")
-        print(
-            color_text(f"📊 Blockchain data loaded: {chain_height} blocks", COLORS["I"])
-        )
-
-        # Update balances for all addresses
-        for wallet in self.addresses:
-            address = wallet["address"]
-            debug_log(f"Syncing wallet: {address}", "DEBUG")
-            balance = self.get_address_balance(address)
-            transactions = self.get_address_transactions(address)
-
-            wallet["balance"] = balance
-            wallet["transactions"] = transactions
-
-            print(
-                color_text(
-                    f"✅ Synced {address}: {balance} LKC, {len(transactions)} transactions",
-                    COLORS["G"],
-                )
-            )
-
-        self.save_wallet()
-        debug_log("Sync completed successfully", "INFO")
+        """Manual sync command - rescan blockchain and rebuild wallet data"""
+        debug_log("Manual sync: Starting blockchain rescan", "INFO")
+        print(color_text("🔄 Rescanning blockchain for wallet data...", COLORS["B"]))
+        
+        # Rescan the blockchain
+        self.scan_blockchain_for_wallets()
+        
         print(color_text("✅ Sync completed", COLORS["G"]))
+        self.show_status()
         return True
-
-    def get_address_transactions(self, address):
-        """Get all transactions for an address - IMPROVED VERSION"""
-        debug_log(f"Getting transactions for address: {address}", "DEBUG")
-        blockchain_data = self.get_blockchain_data()
-        if not blockchain_data:
-            debug_log("No blockchain data available", "DEBUG")
-            return []
-
-        transactions = []
-        debug_log(f"Processing {len(blockchain_data)} blocks", "DEBUG")
-
-        for block_index, block in enumerate(blockchain_data):
-            if not isinstance(block, dict):
-                continue
-
-            block_timestamp = block.get("timestamp", time.time())
-            block_txs = block.get("transactions", [])
-
-            for tx in block_txs:
-                if not isinstance(tx, dict):
-                    continue
-
-                # Check if address is involved using all possible field names
-                from_addr = (
-                    tx.get("from") or tx.get("sender") or tx.get("from_address") or ""
-                )
-                to_addr = (
-                    tx.get("to") or tx.get("receiver") or tx.get("to_address") or ""
-                )
-
-                if from_addr == address or to_addr == address:
-                    tx_copy = tx.copy()
-                    tx_copy["block_height"] = block_index
-                    tx_copy["timestamp"] = block_timestamp
-                    tx_copy["status"] = "confirmed"
-                    tx_copy["confirmations"] = len(blockchain_data) - block_index
-                    transactions.append(tx_copy)
-                    debug_log(
-                        f"Found transaction in block {block_index}: {from_addr} -> {to_addr}",
-                        "DEBUG",
-                    )
-
-        debug_log(f"Found {len(transactions)} total transactions", "DEBUG")
-        return transactions
 
     def send(self, to_address, amount, memo="No Memo."):
         """Create a transaction and broadcast it to the network"""
@@ -412,12 +595,21 @@ class LunaWallet:
             print(color_text("❌ No wallets available", COLORS["R"]))
             return False
 
-        from_wallet = self.addresses[0]
+        # Find first wallet that has private key (can send)
+        from_wallet = None
+        for wallet in self.addresses:
+            if wallet.get("private_key"):
+                from_wallet = wallet
+                break
+        
+        if not from_wallet:
+            print(color_text("❌ No wallet with private key found (read-only wallets cannot send)", COLORS["R"]))
+            return False
+
         debug_log(f"Using wallet: {from_wallet['address']}", "DEBUG")
 
-        # Check balance (include pending outbound transactions)
-        available_balance = self.get_available_balance(from_wallet["address"])
-        debug_log(f"Available balance: {available_balance} LKC", "DEBUG")
+        # Check available balance (confirmed balance only)
+        available_balance = from_wallet.get("confirmed_balance", 0)
         if available_balance < amount:
             print(
                 color_text(
@@ -436,7 +628,7 @@ class LunaWallet:
             "type": "transfer",
             "from": from_wallet["address"],
             "to": to_address,
-            "amount": float(amount),  # Ensure it's a float, not Decimal
+            "amount": float(amount),
             "memo": memo,
             "timestamp": time.time(),
             "signature": transaction_id,
@@ -445,7 +637,7 @@ class LunaWallet:
             ).hexdigest(),
         }
 
-        # Save to local pending transactions (keep your existing format)
+        # Add to pending transactions
         pending_tx = {
             "hash": transaction["hash"],
             "signature": transaction_id,
@@ -459,11 +651,16 @@ class LunaWallet:
             "block_height": None,
         }
 
-        from_wallet["transactions"].append(pending_tx)
+        self.pending_transactions.append(pending_tx)
+        self.save_pending_transactions()
+        
+        # Update local wallet pending balance
+        from_wallet["pending_balance"] -= amount
         self.save_wallet()
-        debug_log("Transaction saved to local wallet", "DEBUG")
+        
+        debug_log("Transaction added to pending transactions", "DEBUG")
 
-        # Broadcast to network via API - use the properly formatted transaction
+        # Broadcast to network via API
         if self.broadcast_transaction(transaction):
             print(
                 color_text(
@@ -476,15 +673,45 @@ class LunaWallet:
         else:
             # Mark as failed if broadcast fails
             pending_tx["status"] = "failed"
+            self.save_pending_transactions()
+            # Restore pending balance
+            from_wallet["pending_balance"] += amount
             self.save_wallet()
             print(color_text("❌ Failed to broadcast transaction", COLORS["R"]))
             return False
+
+    def receive(self):
+        """Show receive address and QR code"""
+        if not self.addresses:
+            print(color_text("❌ No wallets available", COLORS["R"]))
+            return False
+
+        # Find first wallet that has private key
+        wallet = None
+        for w in self.addresses:
+            if w.get("private_key"):
+                wallet = w
+                break
+        
+        if not wallet:
+            print(color_text("❌ No wallet with private key found", COLORS["R"]))
+            return False
+
+        print(color_text(f"\n📥 Receive Address: {wallet['address']}", COLORS["G"]))
+        print(color_text(f"🏷️  Label: {wallet['label']}", COLORS["B"]))
+        
+        # Generate and show QR code
+        qr_filename = self.generate_qr_code(wallet['address'], wallet['label'])
+        if qr_filename:
+            print(color_text(f"📄 QR Code: {qr_filename}", COLORS["I"]))
+        
+        print(color_text("\n💡 Share this address to receive LKC tokens", COLORS["Y"]))
+        return True
+
     def broadcast_transaction(self, transaction):
         """Broadcast transaction to the blockchain API"""
         debug_log("Broadcasting transaction to network", "INFO")
         try:
-            import requests
-
             api_url = "https://bank.linglin.art/api/transaction/broadcast"
             debug_log(f"API URL: {api_url}", "DEBUG")
 
@@ -500,213 +727,81 @@ class LunaWallet:
             debug_log(f"Error broadcasting transaction: {e}", "ERROR")
             return False
 
-    def get_available_balance(self, address):
-        """Get available balance (excluding pending outbound transactions)"""
-        debug_log(f"Calculating available balance for {address}", "DEBUG")
-        confirmed_balance = self.get_address_balance(address)
-        debug_log(f"Confirmed balance: {confirmed_balance} LKC", "DEBUG")
-
-        # Subtract pending outbound transactions
-        pending_outbound = sum(
-            tx["amount"]
-            for tx in self.get_pending_transactions(address)
-            if tx["from"] == address and tx["status"] == "pending"
-        )
-        debug_log(f"Pending outbound: {pending_outbound} LKC", "DEBUG")
-
-        available = max(0, confirmed_balance - pending_outbound)
-        debug_log(f"Available balance: {available} LKC", "DEBUG")
-        return available
-
-    def get_pending_transactions(self, address):
-        """Get pending transactions for an address"""
-        debug_log(f"Getting pending transactions for {address}", "DEBUG")
-        pending = []
-        for wallet in self.addresses:
-            if wallet["address"] == address:
-                for tx in wallet["transactions"]:
-                    if tx.get("status") == "pending":
-                        pending.append(tx)
-        debug_log(f"Found {len(pending)} pending transactions", "DEBUG")
-        return pending
-
-    def update_transaction_confirmations(self):
-        """Update confirmation counts for all transactions - FIXED VERSION"""
-        debug_log("Updating transaction confirmations", "DEBUG")
-
-        blockchain_data = self.get_blockchain_data()
-        if not blockchain_data:
-            debug_log("No blockchain data available", "DEBUG")
+    def show_stats(self):
+        """Show detailed wallet statistics"""
+        debug_log("Displaying wallet statistics", "INFO")
+        if not self.addresses:
+            print(color_text("❌ No wallets available", COLORS["R"]))
             return
 
-        # Find the current blockchain height
-        if isinstance(blockchain_data, list):
-            current_height = len(blockchain_data)
-        else:
-            current_height = 0
+        print(color_text("\n" + "=" * 60, COLORS["I"]))
+        print(color_text("                 WALLET STATISTICS", COLORS["BOLD"]))
+        print(color_text("=" * 60, COLORS["I"]))
 
-        debug_log(f"Current blockchain height: {current_height}", "DEBUG")
-        updated = False
-
-        for wallet_index, wallet in enumerate(self.addresses):
-            debug_log(f"Processing wallet {wallet_index}: {wallet['address']}", "DEBUG")
-            for tx_index, tx in enumerate(wallet["transactions"]):
-                if tx.get("status") in ["pending", "confirmed"]:
-                    tx_hash = tx.get("hash")
-
-                    # If we don't have a block height yet, try to find it in the blockchain
-                    if tx.get("block_height") is None:
-                        debug_log(
-                            f"Transaction {tx_index} has no block height, searching blockchain",
-                            "DEBUG",
-                        )
-                        block_height = self.find_transaction_block_height(tx_hash)
-                        if block_height is not None:
-                            tx["block_height"] = block_height
-                            debug_log(
-                                f"Found block height: {block_height} for transaction {tx_hash}",
-                                "DEBUG",
-                            )
-                            updated = True
-
-                    # Now calculate confirmations if we have a block height
-                    block_height = tx.get("block_height")
-                    if block_height is not None and current_height > 0:
-                        confirmations = current_height - block_height
-                        # Store the original confirmations to prevent reset
-                        original_confirmations = tx.get("confirmations", 0)
-
-                        # Only update if we have more confirmations than before
-                        if confirmations > original_confirmations:
-                            tx["confirmations"] = confirmations
-                            debug_log(
-                                f"Confirmations updated: {original_confirmations} -> {confirmations}",
-                                "DEBUG",
-                            )
-
-                            # Update status based on confirmations
-                            if confirmations >= 6:  # 6 confirmations = fully confirmed
-                                if tx["status"] != "confirmed":
-                                    tx["status"] = "confirmed"
-                                    updated = True
-                                    debug_log(
-                                        "Transaction fully confirmed (6+ confirmations)",
-                                        "DEBUG",
-                                    )
-                            elif confirmations > 0 and tx["status"] == "pending":
-                                tx["status"] = "confirmed"  # At least 1 confirmation
-                                updated = True
-                                debug_log(
-                                    "Transaction confirmed (1+ confirmations)", "DEBUG"
-                                )
-
-        if updated:
-            self.save_wallet()
-            debug_log("Transaction confirmations updated and saved", "DEBUG")
-
-    def find_transaction_block_height(self, transaction_hash):
-        """Find the block height for a transaction by searching the blockchain"""
-        debug_log(f"Searching for transaction: {transaction_hash}", "DEBUG")
-        blockchain_data = self.get_blockchain_data()
-        if not blockchain_data:
-            return None
-
-        # Handle different blockchain structures
-        blocks = []
-        if isinstance(blockchain_data, list):
-            blocks = blockchain_data
-        elif isinstance(blockchain_data, dict):
-            blocks = blockchain_data.get("chain", blockchain_data.get("blocks", []))
-
-        for block_index, block in enumerate(blocks):
-            if not isinstance(block, dict):
-                continue
-
-            transactions = block.get("transactions", block.get("data", []))
-            for tx in transactions:
-                if not isinstance(tx, dict):
-                    continue
-
-                # Check transaction hash
-                if tx.get("hash") == transaction_hash:
-                    debug_log(f"Found transaction in block {block_index}", "DEBUG")
-                    return block_index
-
-        debug_log(f"Transaction not found in blockchain: {transaction_hash}", "DEBUG")
-        return None
+        for wallet in self.addresses:
+            wallet_type = "🔑 Full Wallet" if wallet.get("private_key") else "👀 Read-Only"
+            print(color_text(f"\n📊 {wallet['label']} ({wallet_type})", COLORS["B"]))
+            print(color_text("   Balances:", COLORS["I"]))
+            print(f"     💰 Total Balance: {wallet.get('balance', 0):.6f} LKC")
+            print(f"     ✅ Confirmed: {wallet.get('confirmed_balance', 0):.6f} LKC")
+            print(f"     ⏳ Pending: {wallet.get('pending_balance', 0):.6f} LKC")
+            
+            print(color_text("   📈 Transaction Stats:", COLORS["I"]))
+            print(f"     📥 Total Received: {wallet.get('total_received', 0):.6f} LKC")
+            print(f"     📤 Total Sent: {wallet.get('total_sent', 0):.6f} LKC")
+            print(f"     💎 Reward Income: {wallet.get('reward_income', 0):.6f} LKC")
+            print(f"     🔢 Transaction Count: {wallet.get('transaction_count', 0)}")
 
     def show_transaction_history(self):
-        """Show comprehensive transaction history with status icons and confirmations - PROPER INCOMING/OUTGOING"""
+        """Show comprehensive transaction history"""
         debug_log("Displaying transaction history", "INFO")
         if not self.addresses:
             print(color_text("❌ No wallets available", COLORS["R"]))
             return
 
-        # Update confirmations first
-        self.update_transaction_confirmations()
-
-        wallet_address = self.addresses[0]["address"]
-
-        # Get ALL transactions involving this wallet
+        # Get all transactions including pending
         all_transactions = []
-
-        # 1. Get confirmed transactions from blockchain
-        confirmed_txs = self.get_address_transactions(wallet_address)
-        for tx in confirmed_txs:
-            tx["source"] = "blockchain"
-            all_transactions.append(tx)
-
-        # 2. Get pending transactions from local wallet
         for wallet in self.addresses:
-            if wallet["address"] == wallet_address:
-                for tx in wallet["transactions"]:
-                    if tx.get("status") == "pending":
-                        # Check if this pending transaction is already in confirmed list
-                        tx_hash = tx.get("hash")
-                        if not any(t.get("hash") == tx_hash for t in confirmed_txs):
-                            tx["source"] = "local_pending"
-                            all_transactions.append(tx)
+            for tx in wallet.get("transactions", []):
+                tx["wallet_address"] = wallet["address"]
+                tx["wallet_label"] = wallet["label"]
+                all_transactions.append(tx)
+        
+        # Add pending transactions
+        for pending_tx in self.pending_transactions:
+            if pending_tx.get("status") == "pending":
+                pending_tx["wallet_address"] = pending_tx.get("from")
+                pending_tx["wallet_label"] = "Pending"
+                all_transactions.append(pending_tx)
 
         # Sort by timestamp (newest first)
-        transactions = sorted(
-            all_transactions, key=lambda x: x.get("timestamp", 0), reverse=True
-        )
+        all_transactions.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
 
-        print(
-            color_text(
-                f"\n📊 Transaction History for {self.addresses[0]['label']}:",
-                COLORS["B"],
-            )
-        )
+        print(color_text(f"\n📊 Transaction History ({len(all_transactions)} transactions):", COLORS["B"]))
         print("=" * 80)
 
-        if not transactions:
+        if not all_transactions:
             print(color_text("No transactions found", COLORS["O"]))
             return
 
-        for i, tx in enumerate(transactions, 1):
+        for i, tx in enumerate(all_transactions, 1):
             status = tx.get("status", "unknown")
             confirmations = tx.get("confirmations", 0)
-            source = tx.get("source", "blockchain")
+            tx_type = tx.get("type", "transfer")
 
-            # Status icons and colors with confirmation info
+            # Status icons and colors
             if status == "confirmed":
                 if confirmations >= 6:
-                    status_icon = "✅"  # Fully confirmed
+                    status_icon = "✅"
                     status_text = f"CONFIRMED ({confirmations} confirmations)"
                 else:
-                    status_icon = "🟡"  # Partially confirmed
+                    status_icon = "🟡"
                     status_text = f"CONFIRMED ({confirmations}/6 confirmations)"
                 status_color = COLORS["G"]
             elif status == "pending":
-                if source == "local_pending":
-                    status_icon = "⏳"
-                    status_text = "PENDING (not yet in blockchain)"
-                    status_color = COLORS["Y"]
-                else:
-                    status_icon = "⏳"
-                    status_text = "PENDING (0 confirmations)"
-                    status_color = COLORS["Y"]
+                status_icon = "⏳"
+                status_text = "PENDING (0 confirmations)"
+                status_color = COLORS["Y"]
             elif status == "failed":
                 status_icon = "❌"
                 status_text = "FAILED"
@@ -716,17 +811,21 @@ class LunaWallet:
                 status_text = "UNKNOWN"
                 status_color = COLORS["R"]
 
-            # Determine transaction type based on both from and to fields
+            # Determine transaction direction and type
             from_addr = tx.get("from", "")
             to_addr = tx.get("to", "")
+            wallet_addr = tx.get("wallet_address", "")
 
-            if from_addr == wallet_address and to_addr == wallet_address:
+            if tx_type == "reward":
+                direction = "💎 REWARD"
+                counterparty = f"From: {from_addr}"
+            elif from_addr == wallet_addr and to_addr == wallet_addr:
                 direction = "🔄 SELF"
                 counterparty = "Self"
-            elif from_addr == wallet_address:
+            elif from_addr == wallet_addr:
                 direction = "➡️ OUTGOING"
                 counterparty = f"To: {to_addr}"
-            elif to_addr == wallet_address:
+            elif to_addr == wallet_addr:
                 direction = "⬅️ INCOMING"
                 counterparty = f"From: {from_addr}"
             else:
@@ -736,14 +835,7 @@ class LunaWallet:
             amount = tx.get("amount", 0)
             memo = tx.get("memo", "")
 
-            # Source indicator for pending transactions
-            source_indicator = ""
-            if source == "local_pending":
-                source_indicator = color_text(" [LOCAL PENDING]", COLORS["Y"])
-
-            print(
-                f"{i}. {status_color}{status_icon} {direction} {amount} LKC{source_indicator}{COLORS['X']}"
-            )
+            print(f"{i}. {status_color}{status_icon} {direction} {amount:.6f} LKC{COLORS['X']}")
             print(f"   {counterparty}")
             print(f"   Status: {status_color}{status_text}{COLORS['X']}")
 
@@ -763,15 +855,9 @@ class LunaWallet:
 
         # Check if node data exists
         blockchain_data = self.get_blockchain_data()
-        node_config = self.get_node_config()
 
-        node_status = "🟢 Data Found" if blockchain_data else "🔴 No Data"
-        print(
-            color_text(
-                f"🌐 Node Status: {node_status}",
-                COLORS["G" if blockchain_data else "R"],
-            )
-        )
+        node_status = "🟢 Synced" if blockchain_data else "🔴 No Data"
+        print(color_text(f"🌐 Node Status: {node_status}", COLORS["G" if blockchain_data else "R"]))
 
         # Get blockchain info
         if isinstance(blockchain_data, list):
@@ -779,117 +865,174 @@ class LunaWallet:
         else:
             chain_height = 0
 
-        total_balance = sum(wallet["balance"] for wallet in self.addresses)
-        print(color_text(f"💰 Total Balance: {total_balance} LKC", COLORS["Y"]))
-        print(color_text(f"👛 Wallets: {len(self.addresses)}", COLORS["B"]))
-        print(color_text(f"⛓️  Blockchain Height: {chain_height}", COLORS["I"]))
-
-        # Show miner address from node config if available
-        if node_config.get("miner_address"):
-            print(
-                color_text(
-                    f"⛏️  Node Miner: {node_config['miner_address']}", COLORS["O"]
-                )
-            )
+        total_balance = sum(wallet.get("balance", 0) for wallet in self.addresses)
+        confirmed_balance = sum(wallet.get("confirmed_balance", 0) for wallet in self.addresses)
+        pending_balance = sum(wallet.get("pending_balance", 0) for wallet in self.addresses)
+        
+        # Count wallet types
+        full_wallets = sum(1 for w in self.addresses if w.get("private_key"))
+        read_only_wallets = len(self.addresses) - full_wallets
+        
+        print(color_text(f"💰 Total Balance: {total_balance:.6f} LKC", COLORS["Y"]))
+        print(color_text(f"✅ Confirmed: {confirmed_balance:.6f} LKC", COLORS["G"]))
+        print(color_text(f"⏳ Pending: {pending_balance:.6f} LKC", COLORS["B"]))
+        print(color_text(f"👛 Wallets: {len(self.addresses)} ({full_wallets} full, {read_only_wallets} read-only)", COLORS["I"]))
+        print(color_text(f"⛓️  Blockchain Height: {chain_height}", COLORS["O"]))
+        print(color_text(f"🔄 Auto-sync: Active (every 60s)", COLORS["G"]))
+        print(color_text(f"⏳ Pending Transactions: {len([tx for tx in self.pending_transactions if tx.get('status') == 'pending'])}", COLORS["Y"]))
 
         for i, wallet in enumerate(self.addresses):
             color = [COLORS["G"], COLORS["B"], COLORS["Y"], COLORS["I"]][i % 4]
-            print(color_text(f"\n{i + 1}. {wallet['label']}", color))
+            wallet_type = "🔑" if wallet.get("private_key") else "👀"
+            print(color_text(f"\n{i + 1}. {wallet_type} {wallet['label']}", color))
             print(color_text(f"   Address: {wallet['address']}", color))
-            print(color_text(f"   Balance: {wallet['balance']} LKC", color))
-            print(color_text(f"   Transactions: {len(wallet['transactions'])}", color))
+            print(color_text(f"   Balance: {wallet.get('balance', 0):.6f} LKC", color))
+            print(color_text(f"   Transactions: {len(wallet.get('transactions', []))}", color))
+            if not wallet.get("private_key"):
+                print(color_text("   ⚠️  Read-only (import private key to enable sending)", COLORS["O"]))
 
+    def import_private_key(self, private_key_hex, label=""):
+        """Import a wallet using a private key"""
+        debug_log(f"Importing wallet with private key", "INFO")
+        
+        try:
+            # Validate private key format
+            if len(private_key_hex) != 64 or not all(c in '0123456789abcdef' for c in private_key_hex.lower()):
+                print(color_text("❌ Invalid private key format. Must be 64-character hex string", COLORS["R"]))
+                return False
+            
+            # Generate public key from private key
+            public_key = hashlib.sha256(private_key_hex.encode()).hexdigest()
+            
+            # Generate address (using LUN format like your discovered wallets)
+            address = f"LUN_{public_key[:16]}_{secrets.token_hex(4)}"
+            
+            # Check if this address already exists
+            for existing_wallet in self.addresses:
+                if existing_wallet["address"] == address:
+                    print(color_text(f"❌ Wallet with this private key already exists: {address}", COLORS["R"]))
+                    return False
+            
+            # Create wallet data
+            wallet_data = {
+                "address": address,
+                "label": label or f"Imported_{address[-8:]}",
+                "public_key": public_key,
+                "private_key": private_key_hex,
+                "balance": 0,
+                "confirmed_balance": 0,
+                "pending_balance": 0,
+                "total_received": 0,
+                "total_sent": 0,
+                "reward_income": 0,
+                "transactions": [],
+                "created": time.time(),
+                "discovered": False,
+                "imported": True
+            }
+            
+            # Add to wallet list
+            self.addresses.append(wallet_data)
+            self.save_wallet()
+            
+            # Rescan blockchain to find transactions for this address
+            print(color_text(f"🔍 Scanning blockchain for transactions...", COLORS["B"]))
+            self.scan_blockchain_for_wallets()
+            
+            print(color_text(f"✅ Wallet imported successfully: {address}", COLORS["G"]))
+            print(color_text(f"🏷️  Label: {wallet_data['label']}", COLORS["B"]))
+            print(color_text(f"💰 Balance: {wallet_data['balance']} LKC", COLORS["Y"]))
+            
+            return True
+            
+        except Exception as e:
+            debug_log(f"Error importing private key: {e}", "ERROR")
+            print(color_text(f"❌ Error importing private key: {e}", COLORS["R"]))
+            return False
 
-def clear_screen():
-    """Clear the terminal screen"""
-    os.system("cls" if os.name == "nt" else "clear")
+    def export_private_key(self, address=None):
+        """Export private key for a wallet (BE CAREFUL - shows sensitive data)"""
+        if not self.addresses:
+            print(color_text("❌ No wallets available", COLORS["R"]))
+            return False
+        
+        # If no address specified, use first wallet with private key
+        if address is None:
+            for wallet in self.addresses:
+                if wallet.get("private_key"):
+                    address = wallet["address"]
+                    break
+        
+        if not address:
+            print(color_text("❌ No wallet with private key found", COLORS["R"]))
+            return False
+        
+        # Find the wallet
+        wallet = None
+        for w in self.addresses:
+            if w["address"] == address:
+                wallet = w
+                break
+        
+        if not wallet:
+            print(color_text(f"❌ Wallet not found: {address}", COLORS["R"]))
+            return False
+        
+        if not wallet.get("private_key"):
+            print(color_text(f"❌ Wallet has no private key (read-only): {address}", COLORS["R"]))
+            return False
+        
+        print(color_text(f"\n🔐 PRIVATE KEY EXPORT - KEEP THIS SECURE!", COLORS["R"]))
+        print(color_text("=" * 60, COLORS["R"]))
+        print(color_text(f"Address: {wallet['address']}", COLORS["B"]))
+        print(color_text(f"Label: {wallet['label']}", COLORS["B"]))
+        print(color_text(f"Private Key: {wallet['private_key']}", COLORS["R"]))
+        print(color_text("=" * 60, COLORS["R"]))
+        print(color_text("⚠️  WARNING: Anyone with this private key can access your funds!", COLORS["R"]))
+        print(color_text("⚠️  Store this securely and never share it!", COLORS["R"]))
+        
+        return True
 
-
+    def show_private_keys(self):
+        """Show all wallets with their private keys (careful - sensitive)"""
+        if not self.addresses:
+            print(color_text("❌ No wallets available", COLORS["R"]))
+            return
+        
+        wallets_with_keys = [w for w in self.addresses if w.get("private_key")]
+        
+        if not wallets_with_keys:
+            print(color_text("❌ No wallets with private keys found", COLORS["R"]))
+            return
+        
+        print(color_text(f"\n🔐 Wallets with Private Keys ({len(wallets_with_keys)})", COLORS["R"]))
+        print(color_text("=" * 80, COLORS["R"]))
+        
+        for i, wallet in enumerate(wallets_with_keys, 1):
+            print(color_text(f"{i}. {wallet['label']}", COLORS["B"]))
+            print(f"   Address: {wallet['address']}")
+            print(f"   Private Key: {wallet['private_key']}")
+            print(f"   Balance: {wallet.get('balance', 0):.6f} LKC")
+            print()
 def main():
     wallet = LunaWallet()
 
     print(color_text("\n💡 Type 'help' for commands", COLORS["I"]))
-    print(
-        color_text(
-            "💡 Wallet transactions will be broadcast to the blockchain!", COLORS["Y"]
-        )
-    )
-
-    # Start background confirmation checker
-    import threading
-    import time
-
-    def confirmation_checker():
-        while True:
-            try:
-                time.sleep(30)  # Check every 30 seconds
-                # Clear any existing output and show the prompt at bottom
-                print("\r🔍 Checking transaction confirmations...", end="")
-                time.sleep(0.5)
-                print("\r" + " " * 50, end="")  # Clear line
-                print("\r", end="")
-                wallet.update_transaction_confirmations()
-            except Exception as e:
-                debug_log(f"Confirmation checker error: {e}", "ERROR")
-
-    checker_thread = threading.Thread(target=confirmation_checker, daemon=True)
-    checker_thread.start()
+    print(color_text("💡 Wallet auto-syncs every 60 seconds", COLORS["G"]))
+    print(color_text("💡 Use 'receive' to get your address for receiving funds", COLORS["B"]))
 
     while True:
         try:
-            # Always ensure prompt is at bottom
             cmd = input(color_text("\n💰 wallet> ", COLORS["BOLD"])).strip().lower()
 
             if cmd == "status":
                 wallet.show_status()
-            elif cmd == "debug_blockchain":
-                print(color_text("🔍 BLOCKCHAIN DEBUG", COLORS["B"]))
-
-                # Check if blockchain file exists
-                blockchain_file = os.path.join(wallet.node_data_dir, "blockchain.json")
-                print(f"Blockchain file path: {blockchain_file}")
-                print(f"File exists: {os.path.exists(blockchain_file)}")
-
-                if os.path.exists(blockchain_file):
-                    try:
-                        with open(blockchain_file, "r") as f:
-                            raw_data = f.read()
-                            print(f"File size: {len(raw_data)} characters")
-                            print(f"First 500 chars: {raw_data[:500]}...")
-
-                            # Try to parse JSON
-                            data = json.loads(raw_data)
-                            print(f"JSON type: {type(data)}")
-
-                            if isinstance(data, dict):
-                                print(f"Dictionary keys: {list(data.keys())}")
-                                if "chain" in data:
-                                    chain = data["chain"]
-                                    print(f"Chain length: {len(chain)}")
-                                    if len(chain) > 0:
-                                        latest_block = chain[-1]
-                                        print(
-                                            f"Latest block keys: {list(latest_block.keys())}"
-                                        )
-                                        print(
-                                            f"Latest block hash: {latest_block.get('hash', 'N/A')}"
-                                        )
-                                        print(
-                                            f"Transactions in latest block: {len(latest_block.get('transactions', []))}"
-                                        )
-
-                                        # Show recent transactions
-                                        for i, tx in enumerate(
-                                            latest_block.get("transactions", [])[:3]
-                                        ):
-                                            print(f"TX {i}: {tx}")
-
-                    except Exception as e:
-                        print(f"Error reading blockchain file: {e}")
+            elif cmd == "stats":
+                wallet.show_stats()
             elif cmd == "sync":
                 wallet.sync_with_node()
-                wallet.update_transaction_confirmations()
-
+            elif cmd == "receive":
+                wallet.receive()
             elif cmd.startswith("send"):
                 parts = cmd.split()
                 if len(parts) >= 3:
@@ -897,60 +1040,48 @@ def main():
                     try:
                         amount = float(parts[2])
                         memo = " ".join(parts[3:]) if len(parts) > 3 else ""
-                        if wallet.send(to_address, amount, memo):
-                            time.sleep(2)
-                            wallet.update_transaction_confirmations()
+                        wallet.send(to_address, amount, memo)
                     except ValueError:
                         print(color_text("❌ Invalid amount", COLORS["R"]))
                 else:
                     print("Usage: send <address> <amount> [memo]")
-
             elif cmd == "new":
                 label = input("Wallet label: ").strip() or "New Wallet"
                 wallet.create_wallet(label)
-
             elif cmd in ["transactions", "history"]:
                 wallet.show_transaction_history()
-
+            elif cmd == "import":
+                private_key = input("Private Key:")
+                wallet.import_private_key(private_key_hex=private_key)
+            elif cmd == "export":
+                wallet.export_private_key()
+            elif cmd == "show":
+                wallet.show_private_keys()
             elif cmd == "backup":
                 wallet.backup_wallet()
-
             elif cmd in ["exit", "quit"]:
                 break
-
             elif cmd == "help":
                 print(color_text("💡 Commands:", COLORS["I"]))
                 print("  status        - Show wallet status")
-                print("  sync          - Sync with blockchain")
+                print("  stats         - Show detailed wallet statistics")
+                print("  sync          - Manual sync with blockchain")
+                print("  receive       - Show receive address and QR code")
                 print("  send <addr> <amount> [memo] - Send LKC to address")
-                print("  transactions  - Show transaction history with confirmations")
+                print("  transactions  - Show transaction history")
                 print("  history       - Alias for transactions")
                 print("  new           - Create new wallet with QR code")
                 print("  backup        - Create manual wallet backup")
                 print("  exit/quit     - Exit wallet")
-                print(
-                    color_text(
-                        "\n🔗 Transactions are broadcast to the blockchain network",
-                        COLORS["Y"],
-                    )
-                )
-                print(
-                    color_text(
-                        "⏳ Confirmations update automatically every 30 seconds",
-                        COLORS["G"],
-                    )
-                )
-                print(
-                    color_text(
-                        "📊 Transaction history shows status icons and confirmation counts",
-                        COLORS["B"],
-                    )
-                )
-
+                print(color_text("\n🔍 Features:", COLORS["Y"]))
+                print("  • Auto-setup on first run")
+                print("  • Auto-generate keys for discovered wallets")
+                print("  • Auto-sync every 60 seconds")
+                print("  • Rewards transaction tracking")
+                print("  • Separate confirmed/pending balances")
+                print("  • Full wallet vs read-only wallet support")
             else:
-                print(
-                    color_text("❌ Unknown command. Type 'help' for list.", COLORS["R"])
-                )
+                print(color_text("❌ Unknown command. Type 'help' for list.", COLORS["R"]))
 
         except KeyboardInterrupt:
             print(color_text("\n🛑 Shutting down wallet...", COLORS["R"]))

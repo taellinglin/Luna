@@ -1,706 +1,1100 @@
 #!/usr/bin/env python3
 """
-Luna Node - Real Mining with ROYGBIV Progress & P2P Pool Support
+Luna Node - Enhanced with Reward Transaction Mining
+Based on luna_sim.py with improved reward handling
 """
 
-import os
-import json
-import time
-import threading
-import hashlib
-import uuid
 import requests
-from tqdm import tqdm
+import threading
+import time
+import logging
+import os
+import random
+import json
+import hashlib
+import secrets
+import sys
+from typing import List, Dict, Optional
+import atexit
 
-# ROYGBIV Color Codes
-COLORS = {
-    "R": "\033[91m",  # Red
-    "O": "\033[93m",  # Orange/Yellow
-    "Y": "\033[93m",  # Yellow
-    "G": "\033[92m",  # Green
-    "B": "\033[94m",  # Blue
-    "I": "\033[95m",  # Indigo/Magenta
-    "V": "\033[95m",  # Violet
-    "X": "\033[0m",   # Reset
-}
+# Try to import CUDA modules
+try:
+    import pycuda.autoinit
+    import pycuda.driver as cuda
+    from pycuda.compiler import SourceModule
+    import numpy as np
+    CUDA_AVAILABLE = True
+except ImportError:
+    CUDA_AVAILABLE = False
+    print("⚠️  CUDA not available - falling back to CPU mining")
+
+# -----------------------
+# CONFIG
+# -----------------------
+BASE_URL = "https://bank.linglin.art/"
+
+# HTTP endpoints
+ENDPOINT_STATUS = f"{BASE_URL}/blockchain/status"
+ENDPOINT_MEMPOOL_ADD = f"{BASE_URL}/mempool/add"
+ENDPOINT_MEMPOOL_STATUS = f"{BASE_URL}/mempool/status"
+ENDPOINT_BLOCKCHAIN_STATUS = f"{BASE_URL}/blockchain/status"
+ENDPOINT_SUBMIT_BLOCK = f"{BASE_URL}/blockchain/submit-block"
+ENDPOINT_BLOCKCHAIN = f"{BASE_URL}/blockchain"
+
+# Logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger("luna_node")
+
+# Colors for console output
+class Colors:
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    ORANGE = '\033[38;5;214m'
+    BLUE = '\033[94m'
+    MAGENTA = '\033[95m'
+    CYAN = '\033[96m'
+    WHITE = '\033[97m'
+    BOLD = '\033[1m'
+    END = '\033[0m'
 
 def color_text(text, color):
-    return f"{color}{text}{COLORS['X']}"
+    return f"{color}{text}{Colors.END}"
 
+class ConfigManager:
+    """Manage node configuration"""
+    
+    @staticmethod
+    def get_data_dir():
+        if getattr(sys, "frozen", False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(base_dir, "data")
+    
+    @staticmethod
+    def save_json(filename, data):
+        os.makedirs(ConfigManager.get_data_dir(), exist_ok=True)
+        filepath = os.path.join(ConfigManager.get_data_dir(), filename)
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
+        return True
+    
+    @staticmethod
+    def load_json(filename, default=None):
+        if default is None:
+            default = {}
+        filepath = os.path.join(ConfigManager.get_data_dir(), filename)
+        if os.path.exists(filepath):
+            with open(filepath, "r") as f:
+                return json.load(f)
+        return default
 
+class NodeConfig:
+    """Node configuration with auto-setup"""
+    
+    def __init__(self):
+        self.config_file = "node_config.json"
+        self.load_config()
+        
+        # Auto-setup if no config exists
+        if not hasattr(self, 'miner_address') or not self.miner_address:
+            self.setup_new_node()
+    
+    def load_config(self):
+        config = ConfigManager.load_json(
+            self.config_file,
+            {
+                "miner_address": "",
+                "difficulty": 4,
+                "mining_reward": 1.0,
+                "transaction_fee": 0.1,
+                "auto_mine": False,
+                "use_cuda": CUDA_AVAILABLE,
+                "bills_mined": [],
+                "created_at": time.time(),
+                "last_sync": 0,
+                "node_version": "2.1.0",
+                "reward_transactions_mined": []  # Track reward transactions we've mined
+            }
+        )
+        
+        for key, value in config.items():
+            setattr(self, key, value)
+    
+    def setup_new_node(self):
+        """Interactive setup for new nodes"""
+        print(color_text("\n🎯 Luna Node Setup", Colors.BOLD + Colors.CYAN))
+        print("=" * 40)
+        
+        # Get wallet address
+        while True:
+            address = input(color_text("💰 Enter your wallet address: ", Colors.YELLOW)).strip()
+            if address:
+                self.miner_address = address
+                break
+            print(color_text("❌ Wallet address cannot be empty", Colors.RED))
+        
+        # Get difficulty
+        while True:
+            try:
+                diff = input(color_text("🎯 Enter mining difficulty (1-8, default 4): ", Colors.YELLOW)).strip()
+                if not diff:
+                    diff = 4
+                else:
+                    diff = int(diff)
+                if 1 <= diff <= 8:
+                    self.difficulty = diff
+                    break
+                else:
+                    print(color_text("❌ Difficulty must be between 1-8", Colors.RED))
+            except ValueError:
+                print(color_text("❌ Please enter a valid number", Colors.RED))
+        
+        # Ask about auto-mining
+        auto_mine = input(color_text("🤖 Enable auto-mining? (y/N): ", Colors.YELLOW)).strip().lower()
+        self.auto_mine = auto_mine in ['y', 'yes']
+        
+        # CUDA setup if available
+        if CUDA_AVAILABLE:
+            use_cuda = input(color_text("🎮 Use CUDA for mining? (Y/n): ", Colors.YELLOW)).strip().lower()
+            self.use_cuda = use_cuda not in ['n', 'no']
+        else:
+            self.use_cuda = False
+        
+        self.save_config()
+        print(color_text("✅ Node configuration saved!", Colors.GREEN))
+    
+    def save_config(self):
+        config = {key: getattr(self, key) for key in [
+            'miner_address', 'difficulty', 'mining_reward', 'transaction_fee',
+            'auto_mine', 'use_cuda', 'bills_mined', 'created_at', 'last_sync', 
+            'node_version', 'reward_transactions_mined'
+        ]}
+        ConfigManager.save_json(self.config_file, config)
+    
+    def add_bill(self, block_hash, amount, transactions_mined=0, reward_tx_hash=None):
+        """Add a mined bill to history"""
+        bill = {
+            "block_hash": block_hash,
+            "amount": amount,
+            "timestamp": time.time(),
+            "date": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "transactions_mined": transactions_mined,
+            "reward_tx_hash": reward_tx_hash
+        }
+        self.bills_mined.append(bill)
+        
+        # Keep only last 50 bills
+        if len(self.bills_mined) > 50:
+            self.bills_mined = self.bills_mined[-50:]
+        
+        self.save_config()
+    
+    def add_reward_transaction(self, reward_tx_hash, amount, block_hash):
+        """Track reward transactions we've mined"""
+        reward_tx = {
+            "hash": reward_tx_hash,
+            "amount": amount,
+            "block_hash": block_hash,
+            "timestamp": time.time(),
+            "date": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        self.reward_transactions_mined.append(reward_tx)
+        
+        # Keep only last 100 reward transactions
+        if len(self.reward_transactions_mined) > 100:
+            self.reward_transactions_mined = self.reward_transactions_mined[-100:]
+        
+        self.save_config()
+    
+    def get_bills_summary(self):
+        """Get summary of mined bills"""
+        total_bills = len(self.bills_mined)
+        total_reward = sum(bill["amount"] for bill in self.bills_mined)
+        total_transactions = sum(bill.get("transactions_mined", 0) for bill in self.bills_mined)
+        return total_bills, total_reward, total_transactions
+    
+    def get_rewards_summary(self):
+        """Get summary of reward transactions mined"""
+        total_rewards = len(self.reward_transactions_mined)
+        total_amount = sum(reward["amount"] for reward in self.reward_transactions_mined)
+        return total_rewards, total_amount
 
-class Block:
-    def __init__(self, index, previous_hash, transactions, nonce=0, timestamp=None):
+class BlockchainState:
+    """Get the correct blockchain state with proper previous hash"""
+    
+    @staticmethod
+    def get_next_block_info():
+        """Get the correct next block info with ACTUAL previous hash"""
+        try:
+            # Get blockchain status
+            status_response = requests.get(ENDPOINT_BLOCKCHAIN_STATUS, timeout=10)
+            if status_response.status_code == 200:
+                status_data = status_response.json()
+                status_info = status_data.get('status', {})
+                
+                # Get actual blockchain to get the REAL previous hash
+                blockchain_response = requests.get(ENDPOINT_BLOCKCHAIN, timeout=10)
+                actual_blocks_count = 0
+                actual_previous_hash = "0" * 64
+                
+                if blockchain_response.status_code == 200:
+                    blockchain_data = blockchain_response.json()
+                    actual_blocks_count = len(blockchain_data)
+                    
+                    # Get the ACTUAL hash of the last block
+                    if actual_blocks_count > 0:
+                        last_block = blockchain_data[-1]
+                        actual_previous_hash = last_block.get('hash', '0' * 64)
+                    else:
+                        actual_previous_hash = "0"  # Genesis case
+                
+                # SERVER LOGIC: If blockchain has 1 block (genesis), it expects next block to be index 1
+                reported_height = status_info.get('blocks', 0)
+                difficulty = status_info.get('difficulty', 4)
+                
+                # The key fix: next_index should equal reported_height
+                next_index = reported_height
+                
+                return {
+                    'next_index': next_index,  # This matches server expectation
+                    'previous_hash': actual_previous_hash,  # ACTUAL hash, not zeros!
+                    'difficulty': difficulty,
+                    'reported_height': reported_height,
+                    'actual_blocks': actual_blocks_count
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to get blockchain info: {e}")
+        
+        return {'next_index': 0, 'previous_hash': '0' * 64, 'difficulty': 4, 'reported_height': 0, 'actual_blocks': 0}
+
+class RealBlock:
+    """Real block with exact server hash calculation"""
+    
+    def __init__(self, index, previous_hash, transactions, nonce=0, timestamp=None, miner="default_miner"):
         self.index = int(index)
         self.previous_hash = previous_hash
-        self.timestamp = int(timestamp or time.time())  # Ensure integer timestamp
+        self.timestamp = float(timestamp or time.time())
         self.transactions = transactions
         self.nonce = int(nonce)
-        self.hash = self.calculate_hash()
+        self.miner = miner
+        self.hash = ""
         self.mining_time = 0
 
     def calculate_hash(self):
-        """Calculate block hash - MATCHING BLOCKCHAIN DAEMON"""
-        # Use the EXACT same format as blockchain_daemon.calculate_block_hash
+        """Calculate block hash using the EXACT server method"""
+        # Based on analysis, the server uses sorted compact JSON
         block_data = {
             'index': self.index,
             'previous_hash': self.previous_hash,
             'timestamp': self.timestamp,
-            'transactions': json.dumps(self.transactions, sort_keys=True),
+            'transactions': self.transactions,
             'nonce': self.nonce
         }
-        block_string = json.dumps(block_data, sort_keys=True)
+        
+        # This should match the server's method
+        block_string = json.dumps(block_data, sort_keys=True, separators=(',', ':'))
         return hashlib.sha256(block_string.encode()).hexdigest()
 
-    def mine_block(self, difficulty, progress_callback=None):
+    def mine_block(self, difficulty):
+        """Mine block with proof-of-work"""
+        if self.index == 0:  # Genesis block
+            self.hash = "0" * 64
+            return True
+            
         target = "0" * difficulty
         start_time = time.time()
-        hashes_tried = 0
-        hash_rates = []
-        last_update = start_time
-
-        print(color_text(f"\n🎯 Mining Block #{self.index} | Difficulty: {difficulty}", COLORS["B"]))
         
-        # ROYGBIV colors for progress
-        roygbiv_colors = [COLORS["R"], COLORS["O"], COLORS["Y"], COLORS["G"], COLORS["B"], COLORS["I"], COLORS["V"]]
+        print(color_text(f"⛏️ Mining Block #{self.index} | Target: {target}...", Colors.CYAN))
+        print(color_text(f"   Previous hash: {self.previous_hash[:16]}...", Colors.BLUE))
         
-        with tqdm(
-            desc=color_text("⛏️  Mining", COLORS["Y"]),
-            bar_format="{l_bar}%s{bar}%s{r_bar}" % (COLORS["B"], COLORS["X"]),
-            ncols=80,
-            unit="hash",
-            unit_scale=True
-        ) as pbar:
+        # Start from random position
+        self.nonce = random.randint(0, 1000000)
+        self.hash = self.calculate_hash()
+        
+        attempts = 0
+        while self.hash[:difficulty] != target:
+            self.nonce += 1
+            self.hash = self.calculate_hash()
+            attempts += 1
             
-            while self.hash[:difficulty] != target:
-                self.nonce += 1
-                hashes_tried += 1
-                self.hash = self.calculate_hash()
-                
-                current_time = time.time()
-                if current_time - last_update >= 0.5:  # Update every 500ms
-                    elapsed = current_time - start_time
-                    current_hash_rate = hashes_tried / elapsed
-                    hash_rates.append(current_hash_rate)
-                    avg_hash_rate = sum(hash_rates[-10:]) / min(10, len(hash_rates))
-                    
-                    # ROYGBIV progress calculation
-                    progress_color = roygbiv_colors[int((self.nonce / 1000) % len(roygbiv_colors))]
-                    
-                    # Update progress bar
-                    hash_rate_str = f"{avg_hash_rate:,.0f} H/s"
-                    if avg_hash_rate > 1000:
-                        hash_rate_str = f"{avg_hash_rate/1000:,.1f} kH/s"
-                    
-                    pbar.set_description(f"{progress_color}⛏️  {hash_rate_str}{COLORS['X']}")
-                    pbar.update(hashes_tried - pbar.n)
-                    pbar.refresh()
-                    
-                    last_update = current_time
-                    
-                    if progress_callback:
-                        progress_callback(hashes_tried, avg_hash_rate, self.nonce)
+            if attempts % 100000 == 0:
+                hash_rate = attempts / (time.time() - start_time)
+                print(color_text(f"   Attempts: {attempts:,} | Rate: {hash_rate:,.0f} H/s | Hash: {self.hash[:16]}...", Colors.YELLOW))
+            
+            if attempts > 2000000:
+                print(color_text("🔄 Restarting mining with new nonce range...", Colors.YELLOW))
+                self.nonce = random.randint(0, 1000000)
+                attempts = 0
 
         self.mining_time = time.time() - start_time
-        pbar.close()
-        print(color_text(f"✅ Block mined in {self.mining_time:.2f}s with {hashes_tried:,} hashes", COLORS["G"]))
+        print(color_text(f"✅ Block mined! Time: {self.mining_time:.2f}s", Colors.GREEN))
+        print(color_text(f"   Nonce: {self.nonce:,} | Hash: {self.hash}", Colors.GREEN))
         return True
 
-class LunaNode:
-    def __init__(self):
-        self.api_base = "https://bank.linglin.art"
-        self.data_dir = self.get_data_dir()
-        self.config_file = os.path.join(self.data_dir, "miner_config.json")
-        self.config = self.load_config()
-        self.mempool = []
-        self.running = True
-        self.is_mining = False
-        self.pool_peers = []
-        self.mining_pool = False
-        
-        print(color_text(f"🌙 Luna Miner v1.0.0", COLORS["I"]))
-        print(color_text(f"⛏️  Miner: {self.config['miner_address']}", COLORS["G"]))
-        print(color_text(f"🔗 Mode: {'Pool Mining' if self.mining_pool else 'Solo Mining'}", COLORS["B"]))
-        
-        # Start services
-        self.start_auto_sync()
-        if self.mining_pool:
-            self.connect_to_pool()
-    
-    def get_data_dir(self):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        data_dir = os.path.join(base_dir, "data")
-        os.makedirs(data_dir, exist_ok=True)
-        return data_dir
-    
-    def load_config(self):
-        default_config = {
-            "node_id": str(uuid.uuid4()),
-            "miner_address": f"LUN_{hashlib.sha256(str(time.time()).encode()).hexdigest()[:16]}",
-            "created_at": time.time(),
-            "bills_mined": [],
-            "auto_mine": False,
-            "mined_transactions": {},
-            "mining_pool": False,
-            "pool_address": "http://localhost:9333",
-            "difficulty": 4
-        }
-        
-        try:
-            if os.path.exists(self.config_file):
-                with open(self.config_file, 'r') as f:
-                    loaded_config = json.load(f)
-                    for key, value in default_config.items():
-                        if key not in loaded_config:
-                            loaded_config[key] = value
-                    self.mining_pool = loaded_config.get('mining_pool', False)
-                    return loaded_config
-        except Exception as e:
-            print(color_text(f"Config load error: {e}", COLORS["R"]))
-        
-        self.save_config(default_config)
-        self.mining_pool = default_config['mining_pool']
-        return default_config
-    
-    def save_config(self, config=None):
-        config = config or self.config
-        try:
-            with open(self.config_file, 'w') as f:
-                json.dump(config, f, indent=2)
-        except Exception as e:
-            print(color_text(f"Config save error: {e}", COLORS["R"]))
-    
-    def connect_to_pool(self):
-        """Connect to mining pool"""
-        try:
-            pool_url = self.config.get('pool_address')
-            print(color_text(f"🔗 Connecting to pool: {pool_url}", COLORS["B"]))
-            
-            response = requests.post(
-                f"{pool_url}/pool/join",
-                json={
-                    "miner_address": self.config['miner_address'],
-                    "node_id": self.config['node_id']
-                },
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                if result.get('success'):
-                    self.pool_peers = result.get('peers', [])
-                    print(color_text(f"✅ Connected to pool with {len(self.pool_peers)} peers", COLORS["G"]))
-                    return True
-        except Exception as e:
-            print(color_text(f"❌ Pool connection failed: {e}", COLORS["R"]))
-        
-        return False
-    
-    def get_work_from_pool(self):
-        """Get mining work from pool"""
-        try:
-            pool_url = self.config.get('pool_address')
-            response = requests.get(f"{pool_url}/pool/work", timeout=10)
-            
-            if response.status_code == 200:
-                return response.json()
-        except:
-            pass
-        return None
-    
-    def submit_work_to_pool(self, block_data):
-        """Submit mined block to pool"""
-        try:
-            pool_url = self.config.get('pool_address')
-            response = requests.post(
-                f"{pool_url}/pool/submit",
-                json=block_data,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                return response.json()
-        except:
-            pass
-        return None
-    
-    def start_auto_sync(self):
-        def sync_worker():
-            while self.running:
-                try:
-                    self.sync_mempool()
-                    if self.config.get('auto_mine', False) and not self.is_mining:
-                        self.mine_from_mempool()
-                    time.sleep(10)
-                except Exception as e:
-                    print(color_text(f"Sync error: {e}", COLORS["R"]))
-                    time.sleep(30)
-        
-        threading.Thread(target=sync_worker, daemon=True).start()
-        print(color_text("🔄 Auto-sync started", COLORS["B"]))
-    
-    def sync_mempool(self):
-        try:
-            response = requests.get(f"{self.api_base}/mempool", timeout=10)
-            if response.status_code == 200:
-                new_mempool = response.json()
-                if len(new_mempool) != len(self.mempool):
-                    print(color_text(f"📥 Mempool: {len(new_mempool)} transactions", COLORS["G"]))
-                self.mempool = new_mempool
-                return True
-        except Exception as e:
-            print(color_text(f"❌ Sync failed: {e}", COLORS["R"]))
-        return False
-
-    def get_tx_signature(self, tx):
-        return tx.get('signature') or tx.get('serial_number') or hashlib.sha256(json.dumps(tx, sort_keys=True).encode()).hexdigest()[:32]
-    def debug_block_submission(self, block_data):
-        """Debug why block submission might be failing"""
-        print(color_text("\n🔍 Debugging Block Submission", COLORS["B"]))
-        
-        try:
-            # Test validation with the daemon
-            test_url = f"{self.api_base}/api/blockchain/validate"
-            response = requests.post(test_url, json=block_data, timeout=10)
-            
-            if response.status_code == 200:
-                result = response.json()
-                print(color_text(f"✅ Validation API Response: {result}", COLORS["G"]))
-            else:
-                print(color_text(f"❌ Validation API HTTP {response.status_code}", COLORS["R"]))
-                print(color_text(f"Response: {response.text}", COLORS["R"]))
-                
-        except Exception as e:
-            print(color_text(f"❌ Validation test failed: {e}", COLORS["R"]))
-        
-        # Check the exact block format
-        print(color_text("\n📦 Block Data Being Sent:", COLORS["Y"]))
-        for key, value in block_data.items():
-            if key == "transactions":
-                print(color_text(f"   {key}: {len(value)} transactions", COLORS["B"]))
-                for i, tx in enumerate(value[:3]):  # Show first 3 transactions
-                    tx_type = tx.get('type', 'unknown')
-                    print(color_text(f"     {i+1}. {tx_type}: {tx.get('hash', 'no_hash')[:16]}...", COLORS["B"]))
-            elif key == "hash":
-                print(color_text(f"   {key}: {value[:20]}...", COLORS["B"]))
-            else:
-                print(color_text(f"   {key}: {value} (type: {type(value)})", COLORS["B"]))
-    def mine_from_mempool(self):
-        if self.is_mining:
-            print(color_text("⚠️  Mining already in progress", COLORS["O"]))
-            return False
-        
-        if not self.mempool:
-            print(color_text("📭 Mempool is empty", COLORS["O"]))
-            return False
-        
-        # DEBUG: Check actual blockchain state first
-        actual_blocks = self.debug_blockchain_state()
-        
-        self.is_mining = True
-        try:
-            # Get unmined transactions
-            mined_txs = self.config.get('mined_transactions', {})
-            unmined_txs = [tx for tx in self.mempool if self.get_tx_signature(tx) not in mined_txs]
-            
-            if not unmined_txs:
-                print(color_text("ℹ️  No unmined transactions", COLORS["B"]))
-                return False
-            
-            print(color_text(f"⛏️  Mining {len(unmined_txs)} transactions...", COLORS["G"]))
-            
-            # Show transaction types
-            tx_types = {}
-            for tx in unmined_txs:
-                tx_type = tx.get('type', 'unknown')
-                tx_types[tx_type] = tx_types.get(tx_type, 0) + 1
-            
-            for tx_type, count in tx_types.items():
-                print(color_text(f"   - {count} {tx_type}", COLORS["Y"]))
-            
-            # Get CORRECT blockchain info
-            block_index, previous_hash = self.get_correct_blockchain_info()
-            
-            # Safety check: don't mine if we don't have valid info
-            if block_index is None or previous_hash is None:
-                print(color_text("❌ Cannot get valid blockchain info, cannot mine", COLORS["R"]))
-                self.is_mining = False
-                return False
-            
-            if previous_hash == "0" * 64:
-                print(color_text("🆕 Mining genesis block (no previous blocks)", COLORS["B"]))
-            
-            # Limit transactions to reasonable number for first block
-            if block_index == 1 and len(unmined_txs) > 100:
-                print(color_text(f"⚠️  Limiting to 100 transactions for first block", COLORS["O"]))
-                unmined_txs = unmined_txs[:100]
-            
-            # Add reward transaction
-            base_reward = 1.0
-            bonus_per_tx = 0.1
-            total_reward = base_reward + (bonus_per_tx * len(unmined_txs))
-            
-            reward_tx = {
-                "type": "reward",
-                "to": self.config['miner_address'],  # Use 'to' instead of 'miner'
-                "amount": total_reward,
-                "timestamp": int(time.time()),
-                "block_height": block_index,
-                "description": f"Mining reward for block {block_index}"
-            }
-            
-            all_transactions = unmined_txs + [reward_tx]
-            
-            # Create and mine block
-            difficulty = self.config.get('difficulty', 4)
-            new_block = Block(block_index, previous_hash, all_transactions)
-            
-            def mining_progress(hashes_tried, hash_rate, nonce):
-                pass  # tqdm handles progress
-            
-            start_time = time.time()
-            if new_block.mine_block(difficulty, mining_progress):
-                mining_time = time.time() - start_time
-                
-                # Submit to API
-                block_data = {
-                    "index": new_block.index,
-                    "timestamp": new_block.timestamp,
-                    "transactions": new_block.transactions,
-                    "previous_hash": new_block.previous_hash,
-                    "nonce": new_block.nonce,
-                    "hash": new_block.hash,
-                    "miner": self.config['miner_address']
-                }
-                
-                # DEBUG: Show what we're submitting
-                print(color_text(f"\n📤 Submitting Block #{new_block.index}:", COLORS["B"]))
-                print(color_text(f"   Previous Hash: {new_block.previous_hash[:20]}...", COLORS["Y"]))
-                print(color_text(f"   New Hash: {new_block.hash[:20]}...", COLORS["G"]))
-                print(color_text(f"   Transactions: {len(new_block.transactions)}", COLORS["B"]))
-                
-                # Submit the block
-                try:
-                    submit_endpoints = [
-                        f"{self.api_base}/api/blockchain/submit-block",
-                        f"{self.api_base}/blockchain/submit-block"
-                    ]
-                    
-                    for endpoint in submit_endpoints:
-                        try:
-                            print(color_text(f"📤 Trying submission to: {endpoint}", COLORS["B"]))
-                            response = requests.post(
-                                endpoint,
-                                json=block_data,
-                                timeout=30
-                            )
-                            
-                            print(color_text(f"📤 Submission Response: {response.status_code}", COLORS["Y"]))
-                            
-                            if response.status_code == 201:
-                                result = response.json()
-                                if result.get('success'):
-                                    # Update mined transactions
-                                    for tx in unmined_txs:
-                                        if self.get_tx_signature(tx):
-                                            mined_txs[self.get_tx_signature(tx)] = time.time()
-                                    
-                                    # Add to mining history
-                                    bill = {
-                                        'block_hash': new_block.hash,
-                                        'amount': total_reward,
-                                        'timestamp': time.time(),
-                                        'transactions': len(unmined_txs),
-                                        'date': time.strftime("%Y-%m-%d %H:%M:%S"),
-                                        'mining_time': mining_time,
-                                        'difficulty': difficulty
-                                    }
-                                    self.config['bills_mined'].append(bill)
-                                    
-                                    # Keep only last 50 bills
-                                    if len(self.config['bills_mined']) > 50:
-                                        self.config['bills_mined'] = self.config['bills_mined'][-50:]
-                                    
-                                    self.config['mined_transactions'] = mined_txs
-                                    self.save_config()
-                                    
-                                    print(color_text(f"✅ Block #{new_block.index} accepted! Reward: {total_reward} LUN", COLORS["G"]))
-                                    self.is_mining = False
-                                    return True
-                                else:
-                                    print(color_text(f"❌ Block rejected: {result.get('error', 'Unknown error')}", COLORS["R"]))
-                            else:
-                                print(color_text(f"❌ HTTP Error {response.status_code}: {response.text}", COLORS["R"]))
-                                
-                        except Exception as e:
-                            print(color_text(f"❌ Submission to {endpoint} failed: {e}", COLORS["R"]))
-                            continue
-                    
-                    print(color_text("❌ All submission endpoints failed", COLORS["R"]))
-                        
-                except Exception as e:
-                    print(color_text(f"❌ API submission failed: {e}", COLORS["R"]))
-                
-        except Exception as e:
-            print(color_text(f"❌ Mining error: {e}", COLORS["R"]))
-        finally:
-            self.is_mining = False
-        
-        return False
-    def get_correct_blockchain_info(self):
-        """Get the correct blockchain info for mining"""
-        try:
-            # Try multiple endpoints to get blockchain status
-            endpoints_to_try = [
-                f"{self.api_base}/api/blockchain/status",
-                f"{self.api_base}/blockchain/status",
-                f"{self.api_base}/api/blockchain/latest-block",
-                f"{self.api_base}/blockchain/latest-block"
-            ]
-            
-            for endpoint in endpoints_to_try:
-                try:
-                    print(color_text(f"🔗 Trying endpoint: {endpoint}", COLORS["B"]))
-                    response = requests.get(endpoint, timeout=10)
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        
-                        # Handle different response formats
-                        if 'status' in data:
-                            # /api/blockchain/status format
-                            status_data = data.get('status', {})
-                            current_height = status_data.get('blocks', 0)
-                            latest_hash = status_data.get('latest_hash', '0' * 64)
-                        elif 'block' in data:
-                            # /api/blockchain/latest-block format  
-                            block_data = data.get('block', {})
-                            current_height = block_data.get('index', 0)
-                            latest_hash = block_data.get('hash', '0' * 64)
-                        else:
-                            # Direct blockchain data
-                            current_height = data.get('blocks', data.get('total_blocks', 0))
-                            latest_hash = data.get('latest_hash', '0' * 64)
-                        
-                        next_index = current_height + 1
-                        
-                        print(color_text(f"📊 Blockchain: Height {current_height}", COLORS["G"]))
-                        print(color_text(f"🔗 Latest Hash: {latest_hash[:20]}...", COLORS["B"]))
-                        
-                        # If blockchain is empty, we're mining the genesis block
-                        if current_height == 0:
-                            previous_hash = "0" * 64
-                            print(color_text("🆕 Mining genesis block", COLORS["B"]))
-                        else:
-                            previous_hash = latest_hash
-                            print(color_text(f"⛓️  Linking to block #{current_height}", COLORS["B"]))
-                        
-                        return next_index, previous_hash
-                        
-                except Exception as e:
-                    print(color_text(f"❌ Endpoint {endpoint} failed: {e}", COLORS["R"]))
-                    continue
-            
-            # If all endpoints fail, try to get blocks directly
-            print(color_text("🔄 Trying direct blocks endpoint...", COLORS["O"]))
-            blocks_response = requests.get(f"{self.api_base}/api/blockchain/blocks", timeout=10)
-            if blocks_response.status_code == 200:
-                blocks_data = blocks_response.json()
-                blocks = blocks_data.get('blocks', [])
-                if blocks:
-                    latest_block = blocks[-1]
-                    current_height = latest_block.get('index', 0)
-                    latest_hash = latest_block.get('hash', '0' * 64)
-                    next_index = current_height + 1
-                    previous_hash = latest_hash
-                    
-                    print(color_text(f"📊 Found {len(blocks)} blocks, latest: #{current_height}", COLORS["G"]))
-                    return next_index, previous_hash
-            
-            # Final fallback - check if we can at least connect to the server
-            print(color_text("🔄 Testing basic server connectivity...", COLORS["O"]))
-            test_response = requests.get(f"{self.api_base}/", timeout=5)
-            if test_response.status_code == 200:
-                print(color_text("✅ Server is reachable, but blockchain might be empty", COLORS["G"]))
-                return 1, "0" * 64  # Start with genesis block
-            else:
-                print(color_text("❌ Cannot connect to server", COLORS["R"]))
-                return None, None
-            
-        except Exception as e:
-            print(color_text(f"❌ Failed to get blockchain info: {e}", COLORS["R"]))
-            return None, None
-
-    def debug_blockchain_state(self):
-        """Check what's actually in the blockchain"""
-        try:
-            endpoints = [
-                f"{self.api_base}/api/blockchain/blocks?limit=5",
-                f"{self.api_base}/blockchain/blocks?limit=5",
-                f"{self.api_base}/api/blockchain",
-                f"{self.api_base}/blockchain"
-            ]
-            
-            for endpoint in endpoints:
-                try:
-                    print(color_text(f"🔍 Trying: {endpoint}", COLORS["B"]))
-                    response = requests.get(endpoint, timeout=10)
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        
-                        # Handle different response formats
-                        if isinstance(data, list):
-                            blocks = data
-                        elif 'blocks' in data:
-                            blocks = data['blocks']
-                        elif 'status' in data:
-                            # Just show status if we can't get blocks
-                            status = data['status']
-                            print(color_text(f"📊 Blockchain Status: {status.get('blocks', 0)} blocks", COLORS["G"]))
-                            return []
-                        else:
-                            blocks = []
-                        
-                        print(color_text("\n🔍 Actual Blockchain State:", COLORS["B"]))
-                        if not blocks:
-                            print(color_text("   Blockchain is EMPTY - no blocks yet", COLORS["O"]))
-                        else:
-                            for block in blocks[-5:]:  # Show last 5 blocks
-                                block_index = block.get('index', 'Unknown')
-                                block_hash = block.get('hash', 'N/A')[:20] + '...'
-                                print(color_text(f"   Block #{block_index}: {block_hash}", COLORS["G"]))
-                        
-                        return blocks
-                        
-                except Exception as e:
-                    print(color_text(f"❌ Endpoint {endpoint} failed: {e}", COLORS["R"]))
-                    continue
-            
-            print(color_text("❌ All blockchain endpoints failed", COLORS["R"]))
-            return []
-                
-        except Exception as e:
-            print(color_text(f"❌ Blockchain debug failed: {e}", COLORS["R"]))
-            return []
-    def get_status(self):
-        total_bills = len(self.config.get('bills_mined', []))
-        total_reward = sum(bill.get('amount', 0) for bill in self.config.get('bills_mined', []))
-        total_mining_time = sum(bill.get('mining_time', 0) for bill in self.config.get('bills_mined', []))
-        
+    def to_dict(self):
+        """Convert to server format"""
         return {
-            'miner_address': self.config['miner_address'],
-            'mempool_size': len(self.mempool),
-            'bills_mined': total_bills,
-            'total_reward': total_reward,
-            'total_mining_time': total_mining_time,
-            'auto_mine': self.config.get('auto_mine', False),
-            'mining_pool': self.mining_pool,
-            'difficulty': self.config.get('difficulty', 4)
+            "hash": self.hash,
+            "index": self.index,
+            "nonce": self.nonce,
+            "previous_hash": self.previous_hash,
+            "timestamp": self.timestamp,
+            "transactions": self.transactions,
+            "miner": self.miner
         }
+
+class SmartMiner:
+    """Optimized miner with fast reward transaction filtering"""
     
-    def toggle_auto_mine(self):
-        self.config['auto_mine'] = not self.config.get('auto_mine', False)
-        self.save_config()
-        status = "enabled" if self.config['auto_mine'] else "disabled"
-        print(color_text(f"🤖 Auto-mining {status}", COLORS["G"]))
-        return self.config['auto_mine']
-    
-    def toggle_mining_pool(self):
-        self.config['mining_pool'] = not self.config.get('mining_pool', False)
-        self.mining_pool = self.config['mining_pool']
-        self.save_config()
-        status = "enabled" if self.mining_pool else "disabled"
-        print(color_text(f"🔗 Pool mining {status}", COLORS["B"]))
+    def __init__(self, config):
+        self.config = config
+        self.miner_address = config.miner_address
+        self.is_mining = False
+        self.blocks_mined = 0
         
-        if self.mining_pool:
-            self.connect_to_pool()
+        # Caching for performance
+        self._reward_cache = set()  # Fast lookup of mined reward signatures
+        self._cache_timestamp = 0
+        self._cache_ttl = 300  # 5 minutes cache TTL
         
-        return self.mining_pool
+    def _get_reward_signature(self, reward_tx):
+        """Generate a unique signature for a reward transaction"""
+        recipient = reward_tx.get('to')
+        block_height = reward_tx.get('block_height')
+        amount = reward_tx.get('amount')
+        tx_hash = reward_tx.get('hash')
+        
+        # Use hash if available, otherwise create signature
+        if tx_hash:
+            return tx_hash
+        return f"reward_{recipient}_{block_height}_{amount}"
     
-    def set_difficulty(self, difficulty):
-        if 1 <= difficulty <= 8:
-            self.config['difficulty'] = difficulty
-            self.save_config()
-            print(color_text(f"🎯 Difficulty set to {difficulty}", COLORS["G"]))
-            return True
-        else:
-            print(color_text("❌ Difficulty must be between 1-8", COLORS["R"]))
+    def _refresh_reward_cache(self):
+        """Refresh the reward cache with current mined rewards"""
+        current_time = time.time()
+        if current_time - self._cache_timestamp < self._cache_ttl:
+            return  # Cache still valid
+        
+        print(color_text("🔄 Refreshing reward cache...", Colors.BLUE))
+        self._reward_cache.clear()
+        
+        # Add locally tracked rewards
+        for reward in self.config.reward_transactions_mined:
+            if reward.get('hash'):
+                self._reward_cache.add(reward['hash'])
+        
+        # Add rewards from blockchain (limited to recent blocks for speed)
+        try:
+            blockchain_response = requests.get(ENDPOINT_BLOCKCHAIN, timeout=10)
+            if blockchain_response.status_code == 200:
+                blockchain_data = blockchain_response.json()
+                
+                # Only check recent blocks (last 50) for performance
+                recent_blocks = blockchain_data[-50:] if len(blockchain_data) > 50 else blockchain_data
+                
+                for block in recent_blocks:
+                    transactions = block.get('transactions', [])
+                    for tx in transactions:
+                        if tx.get('type') == 'reward':
+                            signature = self._get_reward_signature(tx)
+                            self._reward_cache.add(signature)
+                
+                print(color_text(f"✅ Reward cache updated: {len(self._reward_cache)} mined rewards", Colors.GREEN))
+        
+        except Exception as e:
+            print(color_text(f"⚠️ Cache refresh warning: {e}", Colors.ORANGE))
+        
+        self._cache_timestamp = current_time
+    
+    def is_reward_already_mined(self, reward_tx):
+        """Fast check if reward is already mined using cache"""
+        # Refresh cache if needed
+        self._refresh_reward_cache()
+        
+        signature = self._get_reward_signature(reward_tx)
+        return signature in self._reward_cache
+    
+    def get_mempool_transactions(self):
+        """Get transactions from mempool with fast reward filtering"""
+        try:
+            start_time = time.time()
+            response = requests.get(ENDPOINT_MEMPOOL_STATUS, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                transactions = data.get('status', {}).get('transactions', [])
+                
+                # Pre-filter transactions by type
+                valid_txs = []
+                reward_txs = []
+                
+                for tx in transactions:
+                    tx_type = tx.get('type')
+                    if tx_type in ['transfer', 'GTX_Genesis']:
+                        valid_txs.append(tx)
+                    elif tx_type == 'reward':
+                        reward_txs.append(tx)
+                
+                # Fast parallel processing of reward transactions
+                unmined_rewards = self._filter_unmined_rewards_parallel(reward_txs)
+                
+                processing_time = time.time() - start_time
+                print(color_text(f"📥 Transactions loaded in {processing_time:.2f}s: {len(valid_txs)} regular + {len(unmined_rewards)} unmined rewards", Colors.BLUE))
+                
+                return valid_txs + unmined_rewards
+                
+        except Exception as e:
+            print(color_text(f"❌ Mempool error: {e}", Colors.RED))
+        return []
+    
+    def _filter_unmined_rewards_parallel(self, reward_txs):
+        """Filter unmined rewards using batch processing"""
+        if not reward_txs:
+            return []
+        
+        # Refresh cache first
+        self._refresh_reward_cache()
+        
+        unmined_rewards = []
+        skipped_count = 0
+        
+        for tx in reward_txs:
+            if not self.is_reward_already_mined(tx):
+                unmined_rewards.append(tx)
+            else:
+                skipped_count += 1
+        
+        if skipped_count > 0:
+            print(color_text(f"⏭️  Skipped {skipped_count} already mined rewards", Colors.YELLOW))
+        
+        return unmined_rewards
+    
+    def scan_for_unmined_rewards(self):
+        """Fast scan for unmined rewards (limited scope for performance)"""
+        try:
+            print(color_text("🔍 Quick-scanning for unmined rewards...", Colors.BLUE))
+            start_time = time.time()
+            
+            blockchain_response = requests.get(ENDPOINT_BLOCKCHAIN, timeout=10)
+            if blockchain_response.status_code == 200:
+                blockchain_data = blockchain_response.json()
+                
+                # Only scan recent blocks for performance
+                scan_limit = 20  # Only last 20 blocks
+                blocks_to_scan = blockchain_data[-scan_limit:] if len(blockchain_data) > scan_limit else blockchain_data
+                
+                unmined_rewards = []
+                total_rewards_found = 0
+                
+                for block in blocks_to_scan:
+                    transactions = block.get('transactions', [])
+                    for tx in transactions:
+                        if tx.get('type') == 'reward':
+                            total_rewards_found += 1
+                            if not self.is_reward_already_mined(tx):
+                                unmined_rewards.append(tx)
+                
+                scan_time = time.time() - start_time
+                print(color_text(f"💰 Found {len(unmined_rewards)}/{total_rewards_found} unmined rewards in {scan_time:.2f}s", Colors.GREEN))
+                return unmined_rewards
+                
+        except Exception as e:
+            print(color_text(f"❌ Quick-scan error: {e}", Colors.RED))
+        
+        return []
+    
+    def mark_reward_as_mined(self, reward_tx, block_hash):
+        """Fast marking of reward as mined"""
+        try:
+            signature = self._get_reward_signature(reward_tx)
+            
+            # Add to cache immediately
+            self._reward_cache.add(signature)
+            
+            # Check if already in local history
+            already_marked = any(
+                r.get('hash') == signature for r in self.config.reward_transactions_mined
+            )
+            
+            if not already_marked:
+                reward_data = {
+                    "hash": signature,
+                    "recipient": reward_tx.get('to'),
+                    "amount": reward_tx.get('amount'),
+                    "block_height": reward_tx.get('block_height'),
+                    "block_hash": block_hash,
+                    "timestamp": time.time(),
+                    "date": time.strftime("%Y-%m-%d %H:%M:%S")
+                }
+                self.config.reward_transactions_mined.append(reward_data)
+                
+                # Keep history manageable
+                if len(self.config.reward_transactions_mined) > 200:
+                    self.config.reward_transactions_mined = self.config.reward_transactions_mined[-200:]
+                
+                self.config.save_config()
+                print(color_text(f"✅ Marked reward as mined: {reward_tx.get('to')} for {reward_tx.get('amount')} LUN", Colors.GREEN))
+                
+        except Exception as e:
+            print(color_text(f"❌ Error marking reward: {e}", Colors.RED))
+    
+    def scan_for_unmined_rewards(self):
+        """Scan blockchain for unmined reward transactions"""
+        try:
+            print(color_text("🔍 Scanning blockchain for unmined reward transactions...", Colors.BLUE))
+            blockchain_response = requests.get(ENDPOINT_BLOCKCHAIN, timeout=10)
+            if blockchain_response.status_code == 200:
+                blockchain_data = blockchain_response.json()
+                
+                unmined_rewards = []
+                for block in blockchain_data:
+                    transactions = block.get('transactions', [])
+                    for tx in transactions:
+                        if tx.get('type') == 'reward':
+                            # Check if this reward hasn't been mined by us yet
+                            if not self.is_reward_already_mined(tx):
+                                unmined_rewards.append(tx)
+                            else:
+                                print(color_text(f"⏭️  Skipping mined reward in block {block.get('index')}: {tx.get('to')} for {tx.get('amount')} LUN", Colors.YELLOW))
+                
+                print(color_text(f"💰 Found {len(unmined_rewards)} unmined reward transactions", Colors.GREEN))
+                return unmined_rewards
+                
+        except Exception as e:
+            print(color_text(f"❌ Error scanning for rewards: {e}", Colors.RED))
+        
+        return []
+    
+    def should_include_reward_transaction(self, reward_tx):
+        """Determine if we should include a reward transaction in our block"""
+        # Don't include our own reward transactions
+        if reward_tx.get('to') == self.miner_address or reward_tx.get('miner') == self.miner_address:
             return False
+        
+        # Check if reward transaction is already mined
+        if self.is_reward_already_mined(reward_tx):
+            return False
+        
+        return True
     
-    def show_menu(self):
-        while self.running:
-            print(color_text("\n🌙 Luna Miner", COLORS["I"]))
-            print("1. 📊 Status")
-            print("2. ⛏️  Mine Now")
-            print("3. 🔄 Sync Mempool")
-            print("4. 🤖 Toggle Auto-mine")
-            print("5. 🔗 Toggle Pool Mining")
-            print("6. 🎯 Set Difficulty")
-            print("7. 📈 Mining History")
-            print("8. 🚪 Exit")
+    def mark_reward_as_mined(self, reward_tx, block_hash):
+        """Mark a reward transaction as mined"""
+        try:
+            reward_tx_hash = reward_tx.get('hash')
+            if not reward_tx_hash:
+                # Create a signature if no hash exists
+                reward_tx_hash = f"{reward_tx.get('to')}_{reward_tx.get('block_height')}_{reward_tx.get('amount')}"
+            
+            # Check if already marked
+            already_marked = any(
+                r.get('hash') == reward_tx_hash for r in self.config.reward_transactions_mined
+            )
+            
+            if not already_marked:
+                reward_data = {
+                    "hash": reward_tx_hash,
+                    "recipient": reward_tx.get('to'),
+                    "amount": reward_tx.get('amount'),
+                    "block_height": reward_tx.get('block_height'),
+                    "block_hash": block_hash,
+                    "timestamp": time.time(),
+                    "date": time.strftime("%Y-%m-%d %H:%M:%S")
+                }
+                self.config.reward_transactions_mined.append(reward_data)
+                self.config.save_config()
+                print(color_text(f"✅ Marked reward as mined: {reward_tx.get('to')} for {reward_tx.get('amount')} LUN", Colors.GREEN))
+                
+        except Exception as e:
+            print(color_text(f"❌ Error marking reward as mined: {e}", Colors.RED))
+    
+    def mine_and_submit(self):
+        """Complete mining process - WITH REWARD TRANSACTION SUPPORT"""
+        try:
+            # Get the CORRECT next block info with ACTUAL previous hash
+            block_info = BlockchainState.get_next_block_info()
+            next_index = block_info['next_index']
+            previous_hash = block_info['previous_hash']
+            difficulty = block_info['difficulty']
+            
+            print(color_text(f"🔗 Mining block #{next_index}", Colors.CYAN))
+            print(color_text(f"   Previous hash: {previous_hash[:16]}...", Colors.BLUE))
+            print(color_text(f"   Difficulty: {difficulty}", Colors.YELLOW))
+            
+            # Don't mine if we're at genesis and it already exists
+            if next_index == 0:
+                print(color_text("⏭️  Genesis block already exists, skipping...", Colors.YELLOW))
+                return False
+            
+            # Get transactions from mempool (already filters mined rewards)
+            mempool_txs = self.get_mempool_transactions()
+            
+            # Scan for unmined reward transactions in blockchain
+            unmined_rewards = self.scan_for_unmined_rewards()
+            
+            # Combine all transactions
+            all_external_txs = mempool_txs + unmined_rewards
+            transaction_count = len(all_external_txs)
+            
+            # Calculate total reward
+            base_reward = self.config.mining_reward
+            fee_reward = transaction_count * self.config.transaction_fee
+            total_reward = base_reward + fee_reward
+            
+            # Create our mining reward transaction
+            our_reward_tx = self.create_reward_transaction(total_reward, next_index, transaction_count)
+            
+            # Combine transactions (our reward first, then others)
+            all_transactions = [our_reward_tx] + all_external_txs
+            
+            print(color_text(f"💰 Total reward: {total_reward} LUN ({base_reward} base + {fee_reward} fees)", Colors.YELLOW))
+            print(color_text(f"📊 Transactions: {transaction_count} external + 1 reward", Colors.BLUE))
+            
+            # Create and mine block with CORRECT previous hash
+            block = RealBlock(next_index, previous_hash, all_transactions, miner=self.miner_address)
+            
+            print(color_text(f"⛏️ Starting mining of block #{next_index}", Colors.CYAN))
+            if block.mine_block(difficulty):
+                # Verify the hash before submitting
+                verify_hash = block.calculate_hash()
+                if verify_hash != block.hash:
+                    print(color_text(f"❌ Hash verification failed: {block.hash} vs {verify_hash}", Colors.RED))
+                    return False
+                
+                block_data = block.to_dict()
+                print(color_text(f"📤 Submitting block #{next_index}", Colors.BLUE))
+                # In your mine_from_mempool or similar method, add:
+                if not self.get_submission_confirmation():
+                    print(color_text("❌ Mining cancelled by user", Colors.RED))
+                    return False
+                if self.submit_block(block_data):
+                    self.blocks_mined += 1
+                    
+                    # Add to mining history
+                    self.config.add_bill(block.hash, total_reward, transaction_count, our_reward_tx['hash'])
+                    
+                    # Track our reward transaction
+                    self.config.add_reward_transaction(our_reward_tx['hash'], total_reward, block.hash)
+                    
+                    # Mark all external reward transactions as mined
+                    for tx in all_external_txs:
+                        if tx.get('type') == 'reward':
+                            self.mark_reward_as_mined(tx, block.hash)
+                    
+                    print(color_text(f"🎉 SUCCESS! Block #{next_index} accepted", Colors.GREEN))
+                    print(color_text(f"💰 Reward: {total_reward} LUN", Colors.YELLOW))
+                    print(color_text(f"📊 Transactions: {transaction_count}", Colors.BLUE))
+                    print(color_text(f"⏱️  Time: {block.mining_time:.2f}s", Colors.CYAN))
+                    print(color_text(f"🎯 Reward TX: {our_reward_tx['hash'][:16]}...", Colors.MAGENTA))
+                    return True
+                else:
+                    print(color_text(f"❌ Failed to submit block #{next_index}", Colors.RED))
+            else:
+                print(color_text(f"❌ Failed to mine block #{next_index}", Colors.RED))
+            
+            return False
+            
+        except Exception as e:
+            print(color_text(f"💥 Mining error: {e}", Colors.RED))
+            return False
+    def submit_block(self, block_data):
+        """Submit mined block to the API with confirmation"""
+        try:
+            print(color_text("📤 Submitting block to API...", Colors.BLUE))
+            
+            # Pre-submission validation
+            if not self.validate_block_before_submission(block_data):
+                print(color_text("❌ Block validation failed", Colors.RED))
+                return False
+            
+            # Submit to the blockchain API endpoint
+            response = requests.post(
+                f"{self.config.api_base_url}/blockchain/submit-block",
+                json=block_data,
+                timeout=30
+            )
+            
+            if response.status_code == 201:
+                result = response.json()
+                if result.get("success"):
+                    print(color_text("✅ Block submitted successfully!", Colors.GREEN))
+                    
+                    # Wait for confirmation
+                    if self.wait_for_block_confirmation(block_data['hash']):
+                        print(color_text("🎉 Block confirmed on network!", Colors.GREEN))
+                        return True
+                    else:
+                        print(color_text("⚠️ Block submitted but not yet confirmed", Colors.ORANGE))
+                        return True  # Still return True as submission was successful
+                else:
+                    error_msg = result.get('error', 'Unknown error')
+                    print(color_text(f"❌ Block rejected: {error_msg}", Colors.RED))
+            else:
+                print(color_text(f"❌ HTTP {response.status_code}: {response.text}", Colors.RED))
+                
+        except Exception as e:
+            print(color_text(f"💥 Submission error: {e}", Colors.RED))
+        
+        return False
+
+    def validate_block_before_submission(self, block_data):
+        """Validate block before submitting to API"""
+        try:
+            required_fields = ['index', 'previous_hash', 'timestamp', 'transactions', 'nonce', 'hash']
+            
+            # Check required fields
+            for field in required_fields:
+                if field not in block_data:
+                    print(color_text(f"❌ Missing required field: {field}", Colors.RED))
+                    return False
+            
+            # Validate hash
+            if not self.verify_block_hash(block_data):
+                print(color_text("❌ Block hash verification failed", Colors.RED))
+                return False
+                
+            # Validate index is sequential
+            latest_block = self.get_latest_block()
+            if latest_block and hasattr(latest_block, 'index'):
+                expected_index = latest_block.index + 1
+                if block_data['index'] != expected_index:
+                    print(color_text(f"❌ Block index mismatch. Expected: {expected_index}, Got: {block_data['index']}", Colors.RED))
+                    return False
+            
+            print(color_text("✅ Block validation passed", Colors.GREEN))
+            return True
+            
+        except Exception as e:
+            print(color_text(f"❌ Validation error: {e}", Colors.RED))
+            return False
+
+    def verify_block_hash(self, block_data):
+        """Verify that the block hash is correct"""
+        try:
+            # Recreate the block hash calculation (must match server method)
+            temp_block = Block(
+                block_data['index'],
+                block_data['previous_hash'],
+                block_data['transactions'],
+                block_data['nonce'],
+                block_data['timestamp']
+            )
+            
+            calculated_hash = temp_block.calculate_hash()
+            if calculated_hash != block_data['hash']:
+                print(color_text(f"❌ Hash mismatch: {calculated_hash} vs {block_data['hash']}", Colors.RED))
+                return False
+                
+            return True
+        except Exception as e:
+            print(color_text(f"❌ Hash verification error: {e}", Colors.RED))
+            return False
+
+    def wait_for_block_confirmation(self, block_hash, max_attempts=10, delay=3):
+        """Wait for block to be confirmed on the network"""
+        print(color_text(f"⏳ Waiting for block confirmation...", Colors.BLUE))
+        
+        for attempt in range(max_attempts):
+            try:
+                # Check if block exists in the blockchain
+                response = requests.get(
+                    f"{self.config.api_base_url}/blockchain",
+                    timeout=10
+                )
+                
+                if response.status_code == 200:
+                    blockchain_data = response.json()
+                    if isinstance(blockchain_data, list):
+                        # Look for our block in the chain
+                        for block in blockchain_data:
+                            if block.get('hash') == block_hash:
+                                print(color_text(f"✅ Block found at position {block.get('index')}", Colors.GREEN))
+                                return True
+                    
+                    print(color_text(f"🔍 Confirmation attempt {attempt + 1}/{max_attempts}...", Colors.BLUE))
+                
+                time.sleep(delay)
+                
+            except Exception as e:
+                print(color_text(f"⚠️ Confirmation check failed: {e}", Colors.ORANGE))
+                time.sleep(delay)
+        
+        print(color_text("❌ Block confirmation timeout", Colors.RED))
+        return False
+
+    def get_submission_confirmation(self):
+        """Get user confirmation before submitting block"""
+        if not self.config.auto_mine:
+            print(color_text("\n⚠️  BLOCK READY FOR SUBMISSION", Colors.YELLOW))
+            print(color_text("=" * 50, Colors.YELLOW))
+            print(color_text(f"📦 Block #{self.get_latest_block().index + 1}", Colors.BLUE))
+            print(color_text(f"⛏️  Miner: {self.config.miner_address}", Colors.GREEN))
+            print(color_text(f"📊 Transactions: {len(self.blockchain.mempool)}", Colors.ORANGE))
+            print(color_text("=" * 50, Colors.YELLOW))
             
             try:
-                choice = input(color_text("Choice: ", COLORS["B"])).strip()
+                confirm = input(color_text("Submit this block? (y/N): ", Colors.BOLD)).strip().lower()
+                return confirm in ['y', 'yes']
+            except KeyboardInterrupt:
+                print(color_text("\n❌ Submission cancelled", Colors.RED))
+                return False
+            except Exception:
+                return False
+        
+        # Auto-confirm if auto-mining is enabled
+        return True
+    def create_reward_transaction(self, amount, block_height, transaction_count=0):
+        """Create mining reward transaction with proper structure"""
+        # Generate a unique hash for this reward transaction
+        reward_data = f"reward_{self.miner_address}_{amount}_{block_height}_{transaction_count}_{time.time()}"
+        reward_tx_hash = hashlib.sha256(reward_data.encode()).hexdigest()
+        
+        return {
+            "type": "reward",
+            "to": self.miner_address,
+            "amount": float(amount),
+            "timestamp": time.time(),
+            "block_height": int(block_height),
+            "description": f"Mining reward for block {block_height} with {transaction_count} transactions",
+            "transactions_included": transaction_count,
+            "miner": self.miner_address,
+            "fee_reward": float(transaction_count * self.config.transaction_fee),
+            "hash": reward_tx_hash,
+            "signature": f"reward_{reward_tx_hash[:16]}"
+        }
+
+    def start_auto_mining(self):
+        """Start auto-mining loop"""
+        self.is_mining = True
+        print(color_text(f"🚀 Starting auto-miner: {self.miner_address}", Colors.GREEN))
+        
+        consecutive_failures = 0
+        
+        while self.is_mining:
+            success = self.mine_and_submit()
+            
+            if success:
+                consecutive_failures = 0
+                time.sleep(10)  # Wait before next block
+            else:
+                consecutive_failures += 1
+                if consecutive_failures >= 3:
+                    print(color_text("💤 Multiple failures, taking longer break...", Colors.YELLOW))
+                    time.sleep(30)
+                    consecutive_failures = 0
+                else:
+                    time.sleep(15)
+    
+    def stop_mining(self):
+        self.is_mining = False
+        print(color_text(f"🛑 Miner stopped. Blocks mined: {self.blocks_mined}", Colors.YELLOW))
+
+class LunaNode:
+    """Main Luna Node class"""
+    
+    def __init__(self):
+        self.config = NodeConfig()
+        self.miner = SmartMiner(self.config)
+        self.running = True
+        self.auto_mine_thread = None
+        
+        # Register cleanup
+        atexit.register(self.cleanup)
+        
+        self.show_welcome()
+        self.auto_sync()
+        
+        # Start auto-mining if enabled
+        if self.config.auto_mine:
+            self.toggle_auto_mine()
+    
+    def show_welcome(self):
+        """Show welcome message and status"""
+        print(color_text(f"\n🌙 Luna Node v{self.config.node_version}", Colors.BOLD + Colors.CYAN))
+        print("=" * 50)
+        print(color_text(f"⛏️  Miner: {self.config.miner_address}", Colors.GREEN))
+        print(color_text(f"🎯 Difficulty: {self.config.difficulty}", Colors.YELLOW))
+        print(color_text(f"💰 Base Reward: {self.config.mining_reward} LUN", Colors.BLUE))
+        print(color_text(f"💸 Transaction Fee: {self.config.transaction_fee} LUN", Colors.MAGENTA))
+        print(color_text(f"🤖 Auto-mine: {'Enabled' if self.config.auto_mine else 'Disabled'}", Colors.CYAN))
+        
+        # Show mining history summary
+        total_bills, total_reward, total_txs = self.config.get_bills_summary()
+        total_rewards, total_reward_amount = self.config.get_rewards_summary()
+        
+        print(color_text(f"📈 Bills Mined: {total_bills}", Colors.GREEN))
+        print(color_text(f"💰 Total Reward: {total_reward} LUN", Colors.YELLOW))
+        print(color_text(f"📊 Total Transactions: {total_txs}", Colors.BLUE))
+        print(color_text(f"🎯 Reward TXs Mined: {total_rewards}", Colors.MAGENTA))
+    
+    def auto_sync(self):
+        """Auto-sync with network on startup"""
+        print(color_text("\n🔄 Syncing with network...", Colors.BLUE))
+        try:
+            block_info = BlockchainState.get_next_block_info()
+            print(color_text(f"📊 Network height: {block_info['reported_height']}", Colors.GREEN))
+            print(color_text(f"🎯 Network difficulty: {block_info['difficulty']}", Colors.YELLOW))
+            print(color_text(f"🔗 Last block hash: {block_info['previous_hash'][:16]}...", Colors.BLUE))
+            
+            # Update last sync time
+            self.config.last_sync = time.time()
+            self.config.save_config()
+            
+        except Exception as e:
+            print(color_text(f"❌ Sync failed: {e}", Colors.RED))
+    
+    def toggle_auto_mine(self):
+        """Toggle auto-mining on/off"""
+        if self.miner.is_mining:
+            self.miner.stop_mining()
+            self.config.auto_mine = False
+            print(color_text("⏹️  Auto-mining disabled", Colors.YELLOW))
+        else:
+            self.config.auto_mine = True
+            self.auto_mine_thread = threading.Thread(target=self.miner.start_auto_mining, daemon=True)
+            self.auto_mine_thread.start()
+            print(color_text("✅ Auto-mining enabled", Colors.GREEN))
+        
+        self.config.save_config()
+    
+    def mine_once(self):
+        """Mine a single block"""
+        if self.miner.is_mining:
+            print(color_text("⚠️  Auto-mining is running. Stop it first or wait for next block.", Colors.YELLOW))
+            return
+        
+        print(color_text("\n⛏️  Mining single block...", Colors.CYAN))
+        self.miner.mine_and_submit()
+    
+    def show_status(self):
+        """Show node status"""
+        print(color_text(f"\n📊 Node Status", Colors.BOLD + Colors.CYAN))
+        print("=" * 40)
+        
+        # Network info
+        try:
+            block_info = BlockchainState.get_next_block_info()
+            print(color_text(f"🌐 Network Height: {block_info['reported_height']}", Colors.BLUE))
+            print(color_text(f"🎯 Network Difficulty: {block_info['difficulty']}", Colors.YELLOW))
+            print(color_text(f"🔗 Previous Hash: {block_info['previous_hash'][:16]}...", Colors.BLUE))
+        except:
+            print(color_text("❌ Network unreachable", Colors.RED))
+        
+        # Miner info
+        print(color_text(f"⛏️  Miner: {self.config.miner_address}", Colors.GREEN))
+        print(color_text(f"📈 Blocks Mined: {self.miner.blocks_mined}", Colors.GREEN))
+        print(color_text(f"🤖 Auto-mine: {'Running' if self.miner.is_mining else 'Stopped'}", Colors.MAGENTA))
+        
+        # Mining history
+        total_bills, total_reward, total_txs = self.config.get_bills_summary()
+        total_rewards, total_reward_amount = self.config.get_rewards_summary()
+        
+        print(color_text(f"💰 Total Reward: {total_reward} LUN", Colors.YELLOW))
+        print(color_text(f"📊 Total Transactions: {total_txs}", Colors.BLUE))
+        print(color_text(f"🎯 Reward TXs Mined: {total_rewards}", Colors.MAGENTA))
+    
+    def show_bills(self):
+        """Show mining history"""
+        if not self.config.bills_mined:
+            print(color_text("📭 No bills mined yet", Colors.YELLOW))
+            return
+        
+        total_bills, total_reward, total_txs = self.config.get_bills_summary()
+        
+        print(color_text(f"\n📈 Mining History", Colors.BOLD + Colors.CYAN))
+        print("=" * 60)
+        print(color_text(f"Total Bills: {total_bills} | Total Reward: {total_reward} LUN | Total Transactions: {total_txs}", Colors.GREEN))
+        print()
+        
+        for i, bill in enumerate(reversed(self.config.bills_mined[-10:]), 1):
+            print(color_text(f"#{i} | {bill['date']}", Colors.BOLD))
+            print(color_text(f"   Hash: {bill['block_hash'][:16]}...", Colors.BLUE))
+            print(color_text(f"   Reward: {bill['amount']} LUN", Colors.YELLOW))
+            print(color_text(f"   Transactions: {bill.get('transactions_mined', 0)}", Colors.GREEN))
+            if bill.get('reward_tx_hash'):
+                print(color_text(f"   Reward TX: {bill['reward_tx_hash'][:16]}...", Colors.MAGENTA))
+            print()
+    
+    def show_rewards(self):
+        """Show reward transaction history"""
+        if not self.config.reward_transactions_mined:
+            print(color_text("📭 No reward transactions mined yet", Colors.YELLOW))
+            return
+        
+        total_rewards, total_amount = self.config.get_rewards_summary()
+        
+        print(color_text(f"\n🎯 Reward Transactions Mined", Colors.BOLD + Colors.MAGENTA))
+        print("=" * 60)
+        print(color_text(f"Total Rewards: {total_rewards} | Total Amount: {total_amount} LUN", Colors.GREEN))
+        print()
+        
+        for i, reward in enumerate(reversed(self.config.reward_transactions_mined[-10:]), 1):
+            print(color_text(f"#{i} | {reward['date']}", Colors.BOLD))
+            print(color_text(f"   Hash: {reward['hash'][:16]}...", Colors.MAGENTA))
+            print(color_text(f"   Amount: {reward['amount']} LUN", Colors.YELLOW))
+            print(color_text(f"   Block: {reward['block_hash'][:16]}...", Colors.BLUE))
+            print()
+    
+    def show_menu(self):
+        """Display main menu"""
+        while self.running:
+            print(color_text(f"\n🌙 Luna Node Menu", Colors.BOLD + Colors.CYAN))
+            print("=" * 40)
+            print(color_text("1. 📊 Show Status", Colors.BLUE))
+            print(color_text("2. ⛏️  Mine Single Block", Colors.GREEN))
+            print(color_text("3. 🤖 Toggle Auto-mining", Colors.MAGENTA))
+            print(color_text("4. 📈 Show Mining History", Colors.YELLOW))
+            print(color_text("5. 🎯 Show Reward Transactions", Colors.MAGENTA))
+            print(color_text("6. 🔄 Sync with Network", Colors.CYAN))
+            print(color_text("7. 🚪 Exit", Colors.RED))
+            
+            try:
+                choice = input(color_text("\n🎯 Enter your choice (1-7): ", Colors.BOLD)).strip()
                 
                 if choice == "1":
-                    status = self.get_status()
-                    print(color_text(f"⛏️  Miner: {status['miner_address']}", COLORS["G"]))
-                    print(color_text(f"📊 Mempool: {status['mempool_size']} transactions", COLORS["B"]))
-                    print(color_text(f"💰 Bills Mined: {status['bills_mined']}", COLORS["Y"]))
-                    print(color_text(f"💎 Total Reward: {status['total_reward']} LUN", COLORS["I"]))
-                    print(color_text(f"⏱️  Total Mining Time: {status['total_mining_time']:.1f}s", COLORS["V"]))
-                    print(color_text(f"🎯 Difficulty: {status['difficulty']}", COLORS["O"]))
-                    print(color_text(f"🤖 Auto-mine: {'On' if status['auto_mine'] else 'Off'}", COLORS["G"]))
-                    print(color_text(f"🔗 Pool: {'On' if status['mining_pool'] else 'Off'}", COLORS["B"]))
-                    
+                    self.show_status()
                 elif choice == "2":
-                    self.mine_from_mempool()
-                    
+                    self.mine_once()
                 elif choice == "3":
-                    if self.sync_mempool():
-                        print(color_text("✅ Mempool synced", COLORS["G"]))
-                    else:
-                        print(color_text("❌ Sync failed", COLORS["R"]))
-                        
-                elif choice == "4":
                     self.toggle_auto_mine()
-                    
+                elif choice == "4":
+                    self.show_bills()
                 elif choice == "5":
-                    self.toggle_mining_pool()
-                    
+                    self.show_rewards()
                 elif choice == "6":
-                    try:
-                        new_diff = int(input(f"Enter difficulty (1-8, current: {self.config.get('difficulty', 4)}): "))
-                        self.set_difficulty(new_diff)
-                    except:
-                        print(color_text("❌ Invalid difficulty", COLORS["R"]))
-                        
+                    self.auto_sync()
                 elif choice == "7":
-                    bills = self.config.get('bills_mined', [])
-                    if not bills:
-                        print(color_text("📭 No mining history", COLORS["O"]))
-                    else:
-                        for i, bill in enumerate(reversed(bills[-10:])):
-                            color = [COLORS["R"], COLORS["O"], COLORS["Y"], COLORS["G"], COLORS["B"], COLORS["I"]][i % 6]
-                            print(color_text(
-                                f"{i+1}. {bill['amount']} LUN - {bill['transactions']} txs - {bill.get('mining_time', 0):.1f}s", 
-                                color
-                            ))
-                            
-                elif choice == "8":
+                    print(color_text("👋 Goodbye!", Colors.GREEN))
                     self.running = False
-                    print(color_text("👋 Goodbye!", COLORS["G"]))
+                else:
+                    print(color_text("❌ Invalid choice", Colors.RED))
                     
-            except (KeyboardInterrupt, EOFError):
+            except KeyboardInterrupt:
+                print(color_text("\n👋 Goodbye!", Colors.GREEN))
                 self.running = False
-                print(color_text("\n👋 Goodbye!", COLORS["G"]))
             except Exception as e:
-                print(color_text(f"Error: {e}", COLORS["R"]))
+                print(color_text(f"❌ Error: {e}", Colors.RED))
+    
+    def cleanup(self):
+        """Cleanup on exit"""
+        self.running = False
+        if self.miner:
+            self.miner.stop_mining()
+        if self.auto_mine_thread and self.auto_mine_thread.is_alive():
+            self.auto_mine_thread.join(timeout=1)
 
 def main():
-    node = LunaNode()
-    node.show_menu()
+    """Main entry point"""
+    try:
+        node = LunaNode()
+        node.show_menu()
+    except KeyboardInterrupt:
+        print(color_text("\n👋 Goodbye!", Colors.GREEN))
+    except Exception as e:
+        print(color_text(f"❌ Fatal error: {e}", Colors.RED))
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()

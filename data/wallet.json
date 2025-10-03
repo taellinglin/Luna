@@ -1,11 +1,127 @@
 [
   {
+    "address": "LUN_e2eaf51ef3bbcbc1",
+    "label": "Wallet_f3bbcbc1",
+    "public_key": null,
+    "private_key": null,
+    "balance": 1.00001,
+    "pending_balance": 0,
+    "confirmed_balance": 1.00001,
+    "total_received": 1.00001,
+    "total_sent": 0,
+    "reward_income": 1.00001,
+    "transactions": [
+      {
+        "amount": 1.00001,
+        "block_height": 213,
+        "description": "Mining reward for block 213",
+        "timestamp": 1759444509.5881822,
+        "to": "LUN_e2eaf51ef3bbcbc1",
+        "type": "reward",
+        "status": "confirmed",
+        "confirmations": 353
+      }
+    ],
+    "created": 1759444509.5881822,
+    "discovered": true,
+    "transaction_count": 1
+  },
+  {
     "address": "LKC_f52b8a24b7f92ef5_dfe33cd6",
-    "label": "Primary Wallet",
-    "public_key": "f52b8a24b7f92ef51db09453ca09f1c49b1e2c4447f23cd030a6d2584e3d1bf4",
-    "private_key": "3e2b69575c437515a95ea0426394250fc6a3d537c590a07112fa12935e4d2581",
+    "label": "Wallet_dfe33cd6",
+    "public_key": null,
+    "private_key": null,
+    "balance": 5.000075,
+    "transactions": [
+      {
+        "amount": 1.0,
+        "block_height": 431,
+        "description": "Mining reward for block 431",
+        "timestamp": 1759446442.9094226,
+        "to": "LKC_f52b8a24b7f92ef5_dfe33cd6",
+        "type": "reward",
+        "status": "confirmed",
+        "confirmations": 135
+      },
+      {
+        "amount": 1.000005,
+        "block_height": 546,
+        "description": "Mining reward for block 546 with 5 transactions",
+        "fee_reward": 4.9999999999999996e-06,
+        "hash": "754176126ab3eeb5f4793d9d4b8f46b453920cc207ba3a0ecfd1cdfc56c9be3e",
+        "miner": "LKC_f52b8a24b7f92ef5_dfe33cd6",
+        "timestamp": 1759447213.1771708,
+        "to": "LKC_f52b8a24b7f92ef5_dfe33cd6",
+        "transactions_included": 5,
+        "type": "reward",
+        "status": "confirmed",
+        "confirmations": 20
+      },
+      {
+        "amount": 1.00001,
+        "block_height": 548,
+        "description": "Mining reward for block 548 with 10 transactions",
+        "fee_reward": 9.999999999999999e-06,
+        "hash": "328e7535fe91c64c8366d05d1b4ba67cd82a1032b9f79a9c5f56179b3e7878fc",
+        "miner": "LKC_f52b8a24b7f92ef5_dfe33cd6",
+        "timestamp": 1759447227.495836,
+        "to": "LKC_f52b8a24b7f92ef5_dfe33cd6",
+        "transactions_included": 10,
+        "type": "reward",
+        "status": "confirmed",
+        "confirmations": 18
+      },
+      {
+        "amount": 1.00002,
+        "block_height": 551,
+        "description": "Mining reward for block 551 with 20 transactions",
+        "fee_reward": 1.9999999999999998e-05,
+        "hash": "942cdb439c6e26f3e52b397a4e563d7209471e433a11793efc085d25cdc6299a",
+        "miner": "LKC_f52b8a24b7f92ef5_dfe33cd6",
+        "timestamp": 1759447269.6792622,
+        "to": "LKC_f52b8a24b7f92ef5_dfe33cd6",
+        "transactions_included": 20,
+        "type": "reward",
+        "status": "confirmed",
+        "confirmations": 15
+      },
+      {
+        "amount": 1.00004,
+        "block_height": 563,
+        "description": "Mining reward for block 563 with 40 transactions",
+        "fee_reward": 3.9999999999999996e-05,
+        "hash": "535f7c8a2ff6662b6c44b424a5479f892b70e2a0d32e7ff627ce21fb1d6e4a39",
+        "miner": "LKC_f52b8a24b7f92ef5_dfe33cd6",
+        "timestamp": 1759447417.5781054,
+        "to": "LKC_f52b8a24b7f92ef5_dfe33cd6",
+        "transactions_included": 40,
+        "type": "reward",
+        "status": "confirmed",
+        "confirmations": 3
+      }
+    ],
+    "created": 1759446442.9094226,
+    "pending_balance": 0,
+    "confirmed_balance": 5.000075,
+    "total_received": 5.000075,
+    "total_sent": 0,
+    "reward_income": 5.000075,
+    "discovered": true,
+    "transaction_count": 5
+  },
+  {
+    "address": "LUN_2ee204ec85450a45_c3b9fbc5",
+    "label": "Rewards",
+    "public_key": "2ee204ec85450a4574cef62bbc7917c576d613e78ce708b6260c510055d3f3e8",
+    "private_key": "8545dc3aace63222c003c436d1af32b1b00ff038d9ddfbdd747c2f484b416b76",
     "balance": 0,
+    "confirmed_balance": 0,
+    "pending_balance": 0,
+    "total_received": 0,
+    "total_sent": 0,
+    "reward_income": 0,
     "transactions": [],
-    "created": 1759344438.0393994
+    "created": 1759461449.3707132,
+    "discovered": false
   }
 ]
