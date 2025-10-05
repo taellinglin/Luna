@@ -1,34 +1,41 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import os
-from PyInstaller.utils.hooks import collect_data_files
+import sys
+from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_dynamic_libs
 
 block_cipher = None
 
-# Collect SSL certificates and required modules for wallet
-hiddenimports = [
-    # For requests library (if you keep it)
-    'requests',
-    'requests.models',
-    'requests.packages',
-    'requests.packages.urllib3',
-    'requests.packages.urllib3.contrib',
-    'requests.packages.urllib3.contrib.pyopenssl',
-    'requests.packages.urllib3.packages',
-    'requests.packages.urllib3.packages.ssl_match_hostname',
-    'requests.packages.urllib3.util',
-    'requests.packages.urllib3.util.ssl_',
-    'urllib3',
-    'urllib3.contrib',
+# Collect everything for critical packages
+datas = []
+binaries = []
+hiddenimports = []
+
+# Collect all data and binaries for requests and urllib3
+for package in ['requests', 'urllib3', 'chardet', 'idna', 'certifi']:
+    try:
+        pkg_data, pkg_binaries, pkg_hidden = collect_all(package)
+        datas.extend(pkg_data)
+        binaries.extend(pkg_binaries)
+        hiddenimports.extend(pkg_hidden)
+    except Exception as e:
+        print(f"Warning: Could not collect {package}: {e}")
+
+# Additional hidden imports that might be missed
+hiddenimports.extend([
+    'ssl', '_ssl',
+    'cryptography',
+    'cryptography.hazmat',
+    'cryptography.hazmat.backends',
+    'cryptography.hazmat.backends.openssl',
+    'cryptography.hazmat.primitives',
+    'cryptography.hazmat.primitives.ciphers',
+    'cryptography.hazmat.primitives.kdf',
+    'cryptography.hazmat.primitives.serialization',
+    'cryptography.x509',
+    'OpenSSL',
     'urllib3.contrib.pyopenssl',
-    'urllib3.packages',
-    'urllib3.packages.ssl_match_hostname',
-    'urllib3.util',
-    
-    # For standard library HTTP/network modules
-    'http',
-    'http.client',
-    'http.cookies',
+    'urllib3.packages.backports',
     'email',
     'email.mime',
     'email.mime.text',
@@ -37,82 +44,64 @@ hiddenimports = [
     'email.mime.nonmultipart',
     'email.encoders',
     'email.utils',
-    'ssl',
-    'socket',
-    
-    # For encoding/decoding
-    'chardet',
-    'charset_normalizer',
-    'idna',
-    'idna.idnadata',
-    
-    # For data handling
+    'http',
+    'http.client',
+    'http.cookies',
     'json',
     'base64',
-    'binascii',
-    
-    # For security
     'hashlib',
-    'secrets',
     'hmac',
-    
-    # For threading/concurrency
-    'threading',
-    '_thread',
-    'queue',
-    
-    # For networking interfaces
-    'netifaces',
-    
-    # Additional common modules that might be needed
-    'datetime',
-    'calendar',
-    'time',
-    're',
-    'io',
-    'zlib',
-    'gzip',
-    'ctypes',
-    'ctypes.util',
-    
-    # For URL parsing
-    'urllib',
-    'urllib.parse',
-    'urllib.request',
-    'urllib.response',
-    'urllib.error',
-]
+    'secrets',
+    'socket',
+])
 
-# Collect certificate files
-certifi_data = collect_data_files('certifi')
+# Collect certificate files specifically
+try:
+    certifi_data = collect_data_files('certifi')
+    datas.extend(certifi_data)
+except:
+    # Manual fallback for certifi
+    import certifi
+    cert_path = certifi.where()
+    if os.path.exists(cert_path):
+        datas.append((cert_path, 'certifi'))
+
+# Add SSL DLLs and binaries
+if sys.platform == 'win32':
+    # Common paths for SSL libraries
+    possible_ssl_paths = [
+        # Miniconda/Anaconda paths
+        os.path.join(sys.prefix, 'DLLs', '_ssl.pyd'),
+        os.path.join(sys.prefix, 'DLLs', '_hashlib.pyd'),
+        os.path.join(sys.prefix, 'DLLs', '_ctypes.pyd'),
+        os.path.join(sys.prefix, 'Library', 'bin', 'libssl-1_1-x64.dll'),
+        os.path.join(sys.prefix, 'Library', 'bin', 'libcrypto-1_1-x64.dll'),
+        os.path.join(sys.prefix, 'Library', 'bin', 'libssl-3-x64.dll'),
+        os.path.join(sys.prefix, 'Library', 'bin', 'libcrypto-3-x64.dll'),
+        # Standard Python paths
+        os.path.join(sys.prefix, 'DLLs', 'libssl-1_1-x64.dll'),
+        os.path.join(sys.prefix, 'DLLs', 'libcrypto-1_1-x64.dll'),
+    ]
+    
+    for ssl_path in possible_ssl_paths:
+        if os.path.exists(ssl_path):
+            binaries.append((ssl_path, '.'))
 
 a = Analysis(
     ['luna_wallet.py'],
     pathex=[],
-    binaries=[
-        # Add SSL and crypto libraries
-        (r"C:\Users\User\miniconda3\DLLs\_ssl.pyd", "."),
-        (r"C:\Users\User\miniconda3\DLLs\_hashlib.pyd", "."),
-        (r"C:\Users\User\miniconda3\Library\bin\libssl-1_1-x64.dll", "."),
-        (r"C:\Users\User\miniconda3\Library\bin\libcrypto-1_1-x64.dll", "."),
-        (r"C:\Users\User\miniconda3\DLLs\_ctypes.pyd", "."),
-        (r"C:\Users\User\miniconda3\DLLs\_bz2.pyd", "."),
-    ],
-    datas=certifi_data + [
-        # Add certificate bundle
-        (r"C:\Users\User\miniconda3\Lib\site-packages\certifi\cacert.pem", "certifi"),
-    ],
+    binaries=binaries,
+    datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=['pyi_rth_ssl.py'],  # 👈 Add SSL runtime hook
+    runtime_hooks=['pyi_rth_ssl.py'],  # SSL runtime hook
     excludes=[
-        'tkinter',  # Reduce size by excluding GUI modules
+        'tkinter',
         'unittest',
-        'email',
         'pydoc',
-        'pystray',  # Remove if you're not using system tray
-        'PIL',      # Remove if you're not using images
+        'pystray',
+        'PIL',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -131,15 +120,15 @@ exe = EXE(
     name='LunaWallet',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,
-    upx=True,
+    strip=False,  # Set to False for better debugging
+    upx=False,    # Set to False to avoid compression issues
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,  # Set to False for wallet (no console window)
+    console=True,  # Keep as True for debugging, set to False later
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='wallet_icon.ico',
+    icon='wallet_icon.ico' if os.path.exists('wallet_icon.ico') else None,
 )

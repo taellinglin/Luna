@@ -32,12 +32,37 @@ class SecureDataManager:
     @staticmethod
     def get_data_dir():
         if getattr(sys, "frozen", False):
+            # Check if we can write to executable directory
             base_dir = os.path.dirname(sys.executable)
+            data_dir = os.path.join(base_dir, "data")
+            
+            # Try to create data directory in executable location
+            try:
+                os.makedirs(data_dir, exist_ok=True)
+                # Test write permissions
+                test_file = os.path.join(data_dir, "write_test.tmp")
+                with open(test_file, 'w') as f:
+                    f.write("test")
+                os.remove(test_file)
+                return data_dir
+            except (OSError, IOError, PermissionError):
+                # If we can't write to Program Files, use ProgramData
+                if os.name == 'nt':  # Windows
+                    program_data = os.environ.get('PROGRAMDATA', 'C:\\ProgramData')
+                    app_data_dir = os.path.join(program_data, "Luna Wallet")
+                    data_dir = os.path.join(app_data_dir, "data")
+                else:  # Linux/Mac
+                    home_dir = os.path.expanduser("~")
+                    data_dir = os.path.join(home_dir, ".luna_wallet")
+                
+                os.makedirs(data_dir, exist_ok=True)
+                return data_dir
         else:
+            # Development mode - use local directory
             base_dir = os.path.dirname(os.path.abspath(__file__))
-        data_dir = os.path.join(base_dir, "data")
-        os.makedirs(data_dir, exist_ok=True)
-        return data_dir
+            data_dir = os.path.join(base_dir, "data")
+            os.makedirs(data_dir, exist_ok=True)
+            return data_dir
 
     @staticmethod
     def generate_key_from_password(password):
@@ -104,13 +129,16 @@ class LunaWallet:
         self.pending_file = "pending.json"
         self.data_dir = SecureDataManager.get_data_dir()
         
+        
         # Load or create wallet
         self.wallets = self.load_wallet() or []
         self.pending_txs = SecureDataManager.load_json(self.pending_file, [])
         
         if not self.wallets:
             self.first_time_setup()
-        
+        self.password = None
+        self.password_timestamp = 0
+        self.PASSWORD_TIMEOUT = 300  # 5 minutes
         # Fix any existing wallets that might be missing the pending_send field
         for wallet in self.wallets:
             if "pending_send" not in wallet:
@@ -168,13 +196,34 @@ class LunaWallet:
             print(color_text("❌ Wrong password or corrupted wallet", COLORS["R"]))
             sys.exit(1)
             
+        # Store the password for background saves
+        self.password = password
+        self.password_timestamp = time.time()
         print(color_text(f"✅ Loaded {len(wallets)} wallets", COLORS["G"]))
         return wallets
 
-    def save_wallet(self, password=None):
+    def get_cached_password(self):
+        """Get cached password if still valid"""
+        if (self.password and 
+            time.time() - self.password_timestamp < self.PASSWORD_TIMEOUT):
+            return self.password
+        return None
+
+    def save_wallet(self, password=None, background=False):
         """Save wallet with encryption"""
         if password is None:
-            password = self.get_password("🔐 Enter password to save: ")
+            if background:
+                # In background mode, use cached password or skip
+                password = self.get_cached_password()
+                if not password:
+                    return False  # Skip save if no cached password
+            else:
+                # In foreground mode, prompt and cache
+                password = self.get_password("🔐 Enter password to save: ")
+                self.password = password
+                self.password_timestamp = time.time()
+        
+        return SecureDataManager.save_encrypted_wallet(self.wallet_file, self.wallets, password)
         
         return SecureDataManager.save_encrypted_wallet(self.wallet_file, self.wallets, password)
     def fix_wallet_structure(self):
@@ -212,19 +261,42 @@ class LunaWallet:
         """Background thread to auto-scan for new transactions and rewards"""
         while self.scanning:
             try:
+                
                 self.scan_blockchain()
+                if self.updates:
+                    self.save_wallet(background=True)
+                    print(color_text("📊 Blockchain scan completed - balances updated", COLORS["B"]))
                 time.sleep(30)  # Scan every 30 seconds
             except Exception as e:
                 print(color_text(f"Scan error: {e}", COLORS["R"]))
                 time.sleep(60)
-
+    def auto_scanner(self):
+        """Background thread to auto-scan for new transactions and rewards"""
+        while self.scanning:
+            try:
+                # Reset updates flag at start of scan
+                self.updates = False
+                
+                self.scan_blockchain()
+                
+                # Only save if updates were found AND we have a cached password
+                if self.updates:
+                    if self.save_wallet(background=True):
+                        print(color_text("📊 Blockchain scan completed - balances updated", COLORS["B"]))
+                    else:
+                        print(color_text("⚠️  Updates found but no cached password - run 'sync' to save", COLORS["Y"]))
+                
+                time.sleep(30)  # Scan every 30 seconds
+            except Exception as e:
+                print(color_text(f"Scan error: {e}", COLORS["R"]))
+                time.sleep(60)
     def scan_blockchain(self):
         """Fast blockchain scan for our wallets only"""
         blockchain = self.get_blockchain()
         if not blockchain:
             return
 
-        updates = False
+        # Don't reset updates here - let auto_scanner handle that
         for wallet in self.wallets:
             # Only scan for wallets we control
             if not wallet.get("is_our_wallet", True):
@@ -236,14 +308,11 @@ class LunaWallet:
             self.scan_wallet_transactions(wallet, blockchain)
             
             if wallet["balance"] != old_balance or len(wallet["transactions"]) != old_tx_count:
-                updates = True
+                self.updates = True  # Set the flag when updates are found
 
         # Update pending transactions
-        self.update_pending_transactions(blockchain)
-
-        if updates:
-            self.save_wallet()
-            print(color_text("📊 Blockchain scan completed - balances updated", COLORS["B"]))
+        if self.update_pending_transactions(blockchain):
+            self.updates = True
 
     def scan_wallet_transactions(self, wallet, blockchain):
         """Scan blockchain for transactions involving this wallet"""
@@ -259,7 +328,8 @@ class LunaWallet:
             # Check block reward
             miner = block.get("miner")
             reward = float(block.get("reward", 0))
-            if miner == address and reward > 0:
+            # Case-insensitive comparison for miner address
+            if miner and address.lower() == miner.lower() and reward > 0:
                 reward_tx = {
                     "type": "reward",
                     "from": "network",
@@ -281,25 +351,27 @@ class LunaWallet:
                 if not tx_hash or tx_hash in known_tx_hashes:
                     continue
                     
-                # Check if this transaction involves our wallet
+                # Check if this transaction involves our wallet (case-insensitive)
                 from_addr = tx.get("from") or tx.get("sender")
                 to_addr = tx.get("to") or tx.get("receiver")
                 
-                if from_addr == address or to_addr == address:
+                # Case-insensitive address comparison
+                if (from_addr and from_addr.lower() == address.lower()) or (to_addr and to_addr.lower() == address.lower()):
                     # Add to transactions
                     tx["status"] = "confirmed"
                     tx["block_height"] = block.get("index", 0)
                     wallet["transactions"].append(tx)
                     known_tx_hashes.add(tx_hash)
                     
-                    print(color_text(f"📥 Transaction found: {tx.get('amount', 0)} LKC", COLORS["B"]))
+                    direction = "⬅️ IN" if to_addr and to_addr.lower() == address.lower() else "➡️ OUT"
+                    print(color_text(f"📥 Transaction found: {tx.get('amount', 0)} LKC {direction}", COLORS["B"]))
 
         # Recalculate balance from all transactions
         wallet["balance"] = self.calculate_balance_from_transactions(wallet["transactions"], address)
         
         # Clear pending send if transactions are confirmed
         for tx in wallet["transactions"]:
-            if (tx.get("from") == address and 
+            if (tx.get("from") and tx.get("from").lower() == address.lower() and 
                 tx.get("status") == "confirmed" and
                 tx.get("hash") in [ptx.get("hash") for ptx in self.pending_txs]):
                 wallet["pending_send"] = max(0, wallet["pending_send"] - float(tx.get("amount", 0)))
@@ -316,18 +388,20 @@ class LunaWallet:
             to_addr = tx.get("to")
             amount = float(tx.get("amount", 0))
             
-            if tx_type == "reward" and to_addr == address:
+            # Case-insensitive address comparison
+            if tx_type == "reward" and to_addr and to_addr.lower() == address.lower():
                 balance += amount
-            elif from_addr == address:
+            elif from_addr and from_addr.lower() == address.lower():
                 balance -= amount
-            elif to_addr == address:
+            elif to_addr and to_addr.lower() == address.lower():
                 balance += amount
                 
         return balance
 
     def update_pending_transactions(self, blockchain):
-        """Update status of pending transactions"""
+        """Update status of pending transactions - return True if updates were made"""
         blockchain_hashes = set()
+        updated = False
         
         # Get all transaction hashes from blockchain
         for block in blockchain:
@@ -335,7 +409,6 @@ class LunaWallet:
                 blockchain_hashes.add(tx.get("hash"))
         
         # Update pending transactions
-        updated = False
         for pending_tx in self.pending_txs[:]:
             if pending_tx.get("hash") in blockchain_hashes:
                 pending_tx["status"] = "confirmed"
@@ -353,6 +426,8 @@ class LunaWallet:
         
         if updated:
             SecureDataManager.save_json(self.pending_file, self.pending_txs)
+        
+        return updated
 
     def get_blockchain(self):
         """Get blockchain data"""

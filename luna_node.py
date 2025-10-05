@@ -90,10 +90,37 @@ class ConfigManager:
     @staticmethod
     def get_data_dir():
         if getattr(sys, "frozen", False):
+            # Check if we can write to executable directory
             base_dir = os.path.dirname(sys.executable)
+            data_dir = os.path.join(base_dir, "data")
+            
+            # Try to create data directory in executable location
+            try:
+                os.makedirs(data_dir, exist_ok=True)
+                # Test write permissions
+                test_file = os.path.join(data_dir, "write_test.tmp")
+                with open(test_file, 'w') as f:
+                    f.write("test")
+                os.remove(test_file)
+                return data_dir
+            except (OSError, IOError, PermissionError):
+                # If we can't write to Program Files, use ProgramData
+                if os.name == 'nt':  # Windows
+                    program_data = os.environ.get('PROGRAMDATA', 'C:\\ProgramData')
+                    app_data_dir = os.path.join(program_data, "Luna Node")
+                    data_dir = os.path.join(app_data_dir, "data")
+                else:  # Linux/Mac
+                    home_dir = os.path.expanduser("~")
+                    data_dir = os.path.join(home_dir, ".luna_node")
+                
+                os.makedirs(data_dir, exist_ok=True)
+                return data_dir
         else:
+            # Development mode - use local directory
             base_dir = os.path.dirname(os.path.abspath(__file__))
-        return os.path.join(base_dir, "data")
+            data_dir = os.path.join(base_dir, "data")
+            os.makedirs(data_dir, exist_ok=True)
+            return data_dir
     
     @staticmethod
     def save_json(filename, data):
@@ -120,8 +147,8 @@ class NodeConfig:
         self.config_file = "node_config.json"
         self.load_config()
         
-        # Auto-setup if no config exists
-        if not hasattr(self, 'miner_address') or not self.miner_address:
+        # Auto-setup if no config exists or setup is incomplete
+        if not hasattr(self, 'miner_address') or not self.miner_address or self.miner_address == "LUN_e93d86a530870259_7fdd8f27":
             self.setup_new_node()
     
     def load_config(self):
@@ -139,7 +166,8 @@ class NodeConfig:
                 "created_at": time.time(),
                 "last_sync": 0,
                 "node_version": "2.1.0",
-                "reward_transactions_mined": []  # Track reward transactions we've mined
+                "reward_transactions_mined": [],  # Track reward transactions we've mined
+                "setup_complete": False  # Track if setup was completed
             }
         )
         
@@ -148,8 +176,10 @@ class NodeConfig:
     
     def setup_new_node(self):
         """Interactive setup for new nodes"""
-        print(color_text("\n🎯 Luna Node Setup", Colors.BOLD + Colors.CYAN))
-        print("=" * 40)
+        print(color_text("\n🎯 Luna Node First-Time Setup", Colors.BOLD + Colors.CYAN))
+        print("=" * 50)
+        print(color_text("Welcome to Luna Node! Let's configure your node.", Colors.BLUE))
+        print()
         
         # Get wallet address
         while True:
@@ -162,7 +192,7 @@ class NodeConfig:
         # Get difficulty
         while True:
             try:
-                diff = input(color_text("🎯 Enter mining difficulty (1-8, default 4): ", Colors.YELLOW)).strip()
+                diff = input(color_text("🎯 Enter mining difficulty (1-8, recommended 4): ", Colors.YELLOW)).strip()
                 if not diff:
                     diff = 4
                 else:
@@ -186,14 +216,66 @@ class NodeConfig:
         else:
             self.use_cuda = False
         
+        self.setup_complete = True
         self.save_config()
-        print(color_text("✅ Node configuration saved!", Colors.GREEN))
+        print(color_text("\n✅ Node configuration saved!", Colors.GREEN))
+        print(color_text(f"💰 Wallet: {self.miner_address}", Colors.BLUE))
+        print(color_text(f"🎯 Difficulty: {self.difficulty}", Colors.YELLOW))
+        print(color_text(f"🤖 Auto-mine: {'Enabled' if self.auto_mine else 'Disabled'}", Colors.MAGENTA))
+        print(color_text(f"🎮 CUDA: {'Enabled' if self.use_cuda else 'Disabled'}", Colors.CYAN))
+        print()
+    
+    def update_wallet_address(self):
+        """Update wallet address"""
+        print(color_text("\n💰 Update Wallet Address", Colors.BOLD + Colors.CYAN))
+        print("=" * 40)
+        
+        print(color_text(f"Current address: {self.miner_address}", Colors.BLUE))
+        
+        while True:
+            new_address = input(color_text("Enter new wallet address: ", Colors.YELLOW)).strip()
+            if new_address:
+                old_address = self.miner_address
+                self.miner_address = new_address
+                self.save_config()
+                print(color_text(f"✅ Wallet address updated!", Colors.GREEN))
+                print(color_text(f"   Old: {old_address}", Colors.BLUE))
+                print(color_text(f"   New: {self.miner_address}", Colors.GREEN))
+                break
+            else:
+                print(color_text("❌ Wallet address cannot be empty", Colors.RED))
+    
+    def update_difficulty(self):
+        """Update mining difficulty"""
+        print(color_text("\n🎯 Update Mining Difficulty", Colors.BOLD + Colors.CYAN))
+        print("=" * 40)
+        
+        print(color_text(f"Current difficulty: {self.difficulty}", Colors.BLUE))
+        print(color_text("Note: Higher difficulty requires more computation but finds blocks less frequently.", Colors.YELLOW))
+        
+        while True:
+            try:
+                new_diff = input(color_text("Enter new difficulty (1-8): ", Colors.YELLOW)).strip()
+                if not new_diff:
+                    continue
+                
+                new_diff = int(new_diff)
+                if 1 <= new_diff <= 8:
+                    old_diff = self.difficulty
+                    self.difficulty = new_diff
+                    self.save_config()
+                    print(color_text(f"✅ Difficulty updated from {old_diff} to {new_diff}", Colors.GREEN))
+                    break
+                else:
+                    print(color_text("❌ Difficulty must be between 1-8", Colors.RED))
+            except ValueError:
+                print(color_text("❌ Please enter a valid number", Colors.RED))
     
     def save_config(self):
         config = {key: getattr(self, key) for key in [
             'miner_address', 'difficulty', 'mining_reward', 'transaction_fee',
             'auto_mine', 'use_cuda', 'api_base_url', 'bills_mined', 'created_at', 'last_sync', 
-            'node_version', 'reward_transactions_mined'
+            'node_version', 'reward_transactions_mined', 'setup_complete'
         ]}
         ConfigManager.save_json(self.config_file, config)
     
@@ -370,6 +452,7 @@ class RealBlock:
             "transactions": self.transactions,
             "miner": self.miner
         }
+
 class Block:
     """Block class for hash verification"""
     
@@ -395,6 +478,7 @@ class Block:
         # This should match the server's method
         block_string = json.dumps(block_data, sort_keys=True, separators=(',', ':'))
         return hashlib.sha256(block_string.encode()).hexdigest()
+
 class SmartMiner:
     """Optimized miner with fast reward transaction filtering"""
     
@@ -408,78 +492,7 @@ class SmartMiner:
         self._reward_cache = set()  # Fast lookup of mined reward signatures
         self._cache_timestamp = 0
         self._cache_ttl = 300  # 5 minutes cache TTL
-    def broadcast_reward_transaction(self, reward_data):
-        """Broadcast a reward transaction to the API - UPDATED WITH PROPER HASH"""
-        try:
-            print(color_text("🌐 Broadcasting reward transaction to API...", COLORS["B"]))
-
-            # Generate a proper hash for the reward transaction
-            timestamp = time.time()
-            reward_id = f"reward_{int(timestamp)}_{secrets.token_hex(8)}"
-            
-            # Create hash from reward data to ensure uniqueness
-            hash_data = f"reward:{reward_data.get('to','')}:{reward_data.get('amount',0)}:{reward_data.get('block_height',0)}:{timestamp}"
-            reward_hash = hashlib.sha256(hash_data.encode()).hexdigest()
-
-            # Create proper transaction structure
-            reward_tx = {
-                "type": "reward",
-                "from": "Ling Country Treasury",  # Or "https://bank.linglin.art"
-                "to": reward_data.get("to", ""),
-                "amount": float(reward_data.get("amount", 0)),
-                "description": reward_data.get("description", "Mining reward"),
-                "block_height": int(reward_data.get("block_height", 0)),
-                "timestamp": timestamp,
-                "miner": reward_data.get("to", ""),  # Miner is the recipient
-                "hash": reward_hash,  # Proper hash required by server
-                "signature": reward_id,
-                "transactions_mined": reward_data.get("transactions_mined", 0),
-            }
-
-            # Validate required fields
-            if not reward_tx["to"]:
-                print(color_text("❌ Cannot broadcast reward: missing 'to' address", COLORS["R"]))
-                return False
-
-            if reward_tx["amount"] <= 0:
-                print(color_text("❌ Cannot broadcast reward: invalid amount", COLORS["R"]))
-                return False
-
-            # Validate the transaction before sending
-            validation = validate_reward_transactions([reward_tx], reward_tx["block_height"])
-            if not validation['valid']:
-                print(color_text(f"❌ Reward transaction validation failed: {validation['error']}", COLORS["R"]))
-                return False
-
-            print(color_text(f"📤 Broadcasting reward transaction: {reward_hash[:16]}...", COLORS["B"]))
-            print(color_text(f"   From: {reward_tx['from']}", COLORS["G"]))
-            print(color_text(f"   To: {reward_tx['to']}", COLORS["G"]))
-            print(color_text(f"   Amount: {reward_tx['amount']} LUN", COLORS["G"]))
-            print(color_text(f"   Block: #{reward_tx['block_height']}", COLORS["G"]))
-
-            # Use the broadcast endpoint (same as regular transactions)
-            response = requests.post(
-                f"{self.config.api_base_url}/api/transaction/broadcast",
-                json=reward_tx,
-                timeout=30,
-            )
-
-            if response.status_code == 200:
-                result = response.json()
-                if result.get("status") == "success":
-                    print(color_text("✅ Reward transaction broadcasted successfully!", COLORS["G"]))
-                    print(color_text(f"📝 Transaction hash: {reward_hash}", COLORS["B"]))
-                    return True
-                else:
-                    print(color_text(f"❌ API returned error: {result.get('message', 'Unknown error')}", COLORS["R"]))
-            else:
-                print(color_text(f"❌ API returned status code: {response.status_code}", COLORS["R"]))
-                print(color_text(f"📋 Response: {response.text}", COLORS["O"]))
-
-        except Exception as e:
-            print(color_text(f"❌ Error broadcasting reward transaction: {e}", COLORS["R"]))
-
-        return False
+    
     def _get_reward_signature(self, reward_tx):
         """Generate a unique signature for a reward transaction"""
         recipient = reward_tx.get('to')
@@ -658,8 +671,6 @@ class SmartMiner:
         except Exception as e:
             print(color_text(f"❌ Error marking reward: {e}", Colors.RED))
     
-    
-    
     def should_include_reward_transaction(self, reward_tx):
         """Determine if we should include a reward transaction in our block"""
         # Don't include our own reward transactions
@@ -671,6 +682,7 @@ class SmartMiner:
             return False
         
         return True
+    
     def get_latest_block(self):
         """Get the latest block from the blockchain"""
         try:
@@ -683,39 +695,12 @@ class SmartMiner:
             print(color_text(f"❌ Error getting latest block: {e}", Colors.RED))
         
         return None
-    def mark_reward_as_mined(self, reward_tx, block_hash):
-        """Mark a reward transaction as mined"""
-        try:
-            reward_tx_hash = reward_tx.get('hash')
-            if not reward_tx_hash:
-                # Create a signature if no hash exists
-                reward_tx_hash = f"{reward_tx.get('to')}_{reward_tx.get('block_height')}_{reward_tx.get('amount')}"
-            
-            # Check if already marked
-            already_marked = any(
-                r.get('hash') == reward_tx_hash for r in self.config.reward_transactions_mined
-            )
-            
-            if not already_marked:
-                reward_data = {
-                    "hash": reward_tx_hash,
-                    "recipient": reward_tx.get('to'),
-                    "amount": reward_tx.get('amount'),
-                    "block_height": reward_tx.get('block_height'),
-                    "block_hash": block_hash,
-                    "timestamp": time.time(),
-                    "date": time.strftime("%Y-%m-%d %H:%M:%S")
-                }
-                self.config.reward_transactions_mined.append(reward_data)
-                self.config.save_config()
-                print(color_text(f"✅ Marked reward as mined: {reward_tx.get('to')} for {reward_tx.get('amount')} LUN", Colors.GREEN))
-                
-        except Exception as e:
-            print(color_text(f"❌ Error marking reward as mined: {e}", Colors.RED))
+    
     def sync_with_network(self):
         """Sync with network to get latest blockchain state"""
         print(color_text("🔄 Syncing with network...", Colors.BLUE))
         return BlockchainState.get_next_block_info()
+    
     def mine_and_submit(self):
         """Complete mining process - WITH PROPER REWARD TRANSACTION MARKING"""
         try:
@@ -819,6 +804,7 @@ class SmartMiner:
             import traceback
             traceback.print_exc()
             return False
+    
     def submit_block(self, block_data):
         """Submit mined block to the API with confirmation"""
         try:
@@ -944,27 +930,6 @@ class SmartMiner:
         print(color_text("❌ Block confirmation timeout", Colors.RED))
         return False
 
-    def get_submission_confirmation(self):
-        """Get user confirmation before submitting block"""
-        if not self.config.auto_mine:
-            print(color_text("\n⚠️  BLOCK READY FOR SUBMISSION", Colors.YELLOW))
-            print(color_text("=" * 50, Colors.YELLOW))
-            print(color_text(f"📦 Block #{self.get_latest_block().index + 1}", Colors.BLUE))
-            print(color_text(f"⛏️  Miner: {self.config.miner_address}", Colors.GREEN))
-            print(color_text(f"📊 Transactions: {len(self.blockchain.mempool)}", Colors.ORANGE))
-            print(color_text("=" * 50, Colors.YELLOW))
-            
-            try:
-                confirm = input(color_text("Submit this block? (y/N): ", Colors.BOLD)).strip().lower()
-                return confirm in ['y', 'yes']
-            except KeyboardInterrupt:
-                print(color_text("\n❌ Submission cancelled", Colors.RED))
-                return False
-            except Exception:
-                return False
-        
-        # Auto-confirm if auto-mining is enabled
-        return True
     def create_reward_transaction(self, amount, block_height, transaction_count=0):
         """Create mining reward transaction with proper structure"""
         # FIX: Use the CURRENT block height, not previous
@@ -1091,6 +1056,16 @@ class LunaNode:
         print(color_text("\n⛏️  Mining single block...", Colors.CYAN))
         self.miner.mine_and_submit()
     
+    def update_wallet_address(self):
+        """Update wallet address through config"""
+        self.config.update_wallet_address()
+        # Update miner address
+        self.miner.miner_address = self.config.miner_address
+    
+    def update_difficulty(self):
+        """Update mining difficulty through config"""
+        self.config.update_difficulty()
+    
     def show_status(self):
         """Show node status"""
         print(color_text(f"\n📊 Node Status", Colors.BOLD + Colors.CYAN))
@@ -1107,6 +1082,7 @@ class LunaNode:
         
         # Miner info
         print(color_text(f"⛏️  Miner: {self.config.miner_address}", Colors.GREEN))
+        print(color_text(f"🎯 Configured Difficulty: {self.config.difficulty}", Colors.YELLOW))
         print(color_text(f"📈 Blocks Mined: {self.miner.blocks_mined}", Colors.GREEN))
         print(color_text(f"🤖 Auto-mine: {'Running' if self.miner.is_mining else 'Stopped'}", Colors.MAGENTA))
         
@@ -1171,10 +1147,12 @@ class LunaNode:
             print(color_text("4. 📈 Show Mining History", Colors.YELLOW))
             print(color_text("5. 🎯 Show Reward Transactions", Colors.MAGENTA))
             print(color_text("6. 🔄 Sync with Network", Colors.CYAN))
-            print(color_text("7. 🚪 Exit", Colors.RED))
+            print(color_text("7. 💰 Change Wallet Address", Colors.BLUE))
+            print(color_text("8. 🎯 Change Difficulty", Colors.YELLOW))
+            print(color_text("9. 🚪 Exit", Colors.RED))
             
             try:
-                choice = input(color_text("\n🎯 Enter your choice (1-7): ", Colors.BOLD)).strip()
+                choice = input(color_text("\n🎯 Enter your choice (1-9): ", Colors.BOLD)).strip()
                 
                 if choice == "1":
                     self.show_status()
@@ -1189,6 +1167,10 @@ class LunaNode:
                 elif choice == "6":
                     self.auto_sync()
                 elif choice == "7":
+                    self.update_wallet_address()
+                elif choice == "8":
+                    self.update_difficulty()
+                elif choice == "9":
                     print(color_text("👋 Goodbye!", Colors.GREEN))
                     self.running = False
                 else:
