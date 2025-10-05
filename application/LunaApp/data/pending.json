@@ -14,7 +14,9 @@
     "from": "LUN_e93d86a530870259_7fdd8f27",
     "to": "lun_69fceabc153a2bf1_6ab17474",
     "amount": 100.0,
-    "status": "pending",
-    "timestamp": 1759623316.4369118
+    "status": "failed",
+    "timestamp": 1759623316.4369118,
+    "wallet_address": "LUN_e93d86a530870259_7fdd8f27",
+    "wallet_label": "Pending"
   }
 ]
