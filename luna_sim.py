@@ -20,14 +20,14 @@ from queue import Queue
 # -----------------------
 BASE_URL = "https://bank.linglin.art/"
 
-NUM_MINERS = 1
+NUM_MINERS = 31
 LOG_LEVEL = logging.INFO
-NUM_WALLETS = 3
+NUM_WALLETS = 31
 NUM_TRANSFER_THREADS = 2  # Number of concurrent transfer generators
 
-MINING_DIFFICULTY = 4
+MINING_DIFFICULTY = 6
 BASE_MINING_REWARD = 1.0
-TRANSACTION_FEE = 0.1
+TRANSACTION_FEE = 0.00001
 
 # -----------------------
 # HTTP endpoints
@@ -616,6 +616,31 @@ class SmartMiner:
         
         logger.info("✅ All workers started - Mining and transfers running concurrently!")
     
+    def consolidate_wallets(self, target_address):
+        """Consolidate all wallet balances to a single target address"""
+        logger.info(f"💰 Consolidating all wallet balances to: {target_address}")
+        
+        total_consolidated = 0.0
+        successful_transfers = 0
+        
+        # Create consolidation transactions for each wallet with balance
+        for wallet_name, wallet in self.wallets.items():
+            if wallet.balance > TRANSACTION_FEE:  # Need enough for fee
+                transfer_amount = wallet.balance - TRANSACTION_FEE
+                
+                if transfer_amount > 0:
+                    transfer_tx = wallet.create_transfer(target_address, transfer_amount)
+                    
+                    if transfer_tx and self.submit_transfer_to_mempool(transfer_tx):
+                        total_consolidated += transfer_amount
+                        successful_transfers += 1
+                        logger.info(f"   ✅ {wallet_name}: {transfer_amount:.2f} LUN → {target_address[:16]}...")
+                    else:
+                        logger.warning(f"   ❌ Failed to transfer from {wallet_name}")
+        
+        logger.info(f"📊 Consolidation complete: {successful_transfers} wallets, {total_consolidated:.2f} LUN total")
+        return total_consolidated, successful_transfers
+    
     def stop_all_workers(self):
         """Stop all workers"""
         logger.info("🛑 Stopping all workers...")
@@ -682,6 +707,43 @@ def stats_monitor(miner):
         miner.print_stats()
         time.sleep(30)  # Print stats every 30 seconds
 
+def ask_consolidation(miner):
+    """Ask user if they want to consolidate wallet balances"""
+    print("\n" + "="*60)
+    print("💰 WALLET CONSOLIDATION")
+    print("="*60)
+    
+    # Show current wallet balances
+    total_balance = sum(wallet.balance for wallet in miner.wallets.values())
+    print(f"📊 Total balance across all wallets: {total_balance:.2f} LUN")
+    
+    while True:
+        response = input("\nDo you want to consolidate all wallet balances to one address? (y/N): ").strip().lower()
+        
+        if response in ['', 'n', 'no']:
+            print("Skipping wallet consolidation.")
+            return False
+        elif response in ['y', 'yes']:
+            target_address = input("Enter target wallet address: ").strip()
+            
+            if not target_address:
+                print("❌ No address provided. Skipping consolidation.")
+                return False
+            
+            print(f"\n🔄 Consolidating {len(miner.wallets)} wallets to: {target_address}")
+            print("This may take a moment...")
+            
+            total_consolidated, successful_transfers = miner.consolidate_wallets(target_address)
+            
+            print(f"\n✅ Consolidation complete!")
+            print(f"   Successfully transferred from {successful_transfers} wallets")
+            print(f"   Total amount consolidated: {total_consolidated:.2f} LUN")
+            print(f"   Target address: {target_address}")
+            
+            return True
+        else:
+            print("❌ Please answer 'y' for yes or 'n' for no.")
+
 def main():
     """Main function"""
     logger.info("🚀 Starting THREADED Luna Miner with Concurrent Transfers and Mining...")
@@ -716,6 +778,13 @@ def main():
         logger.info("🛑 Shutdown requested...")
     finally:
         miner.stop_all_workers()
+        
+        # Ask about wallet consolidation
+        try:
+            ask_consolidation(miner)
+        except Exception as e:
+            logger.error(f"❌ Error during consolidation: {e}")
+        
         logger.info("👋 All workers stopped. Goodbye!")
 
 if __name__ == "__main__":

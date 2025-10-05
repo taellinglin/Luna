@@ -18,16 +18,39 @@ from typing import List, Dict, Optional
 import atexit
 
 # Try to import CUDA modules
-try:
-    import pycuda.autoinit
-    import pycuda.driver as cuda
-    from pycuda.compiler import SourceModule
-    import numpy as np
-    CUDA_AVAILABLE = True
-except ImportError:
-    CUDA_AVAILABLE = False
-    print("⚠️  CUDA not available - falling back to CPU mining")
+# Enhanced CUDA detection for RTX 4090
+def setup_cuda():
+    try:
+        import pycuda.autoinit
+        import pycuda.driver as cuda
+        from pycuda.compiler import SourceModule
+        import numpy as np
+        
+        # Test CUDA capability
+        device = cuda.Device(0)
+        print(f"🎮 CUDA Device: {device.name()}")
+        print(f"🎮 Compute Capability: {device.compute_capability()}")
+        print(f"🎮 Total Memory: {device.total_memory() // (1024**3)} GB")
+        
+        # RTX 4090 specific optimizations
+        if "4090" in device.name():
+            print("🚀 RTX 4090 detected - enabling high-performance mode")
+            
+        CUDA_AVAILABLE = True
+        return CUDA_AVAILABLE
+        
+    except ImportError:
+        print("❌ PyCUDA not installed. Install with: pip install pycuda")
+        CUDA_AVAILABLE = False
+    except Exception as e:
+        print(f"❌ CUDA initialization failed: {e}")
+        print("💡 Try: pip install pycuda")
+        CUDA_AVAILABLE = False
+    
+    return CUDA_AVAILABLE
 
+# Replace your existing CUDA import with:
+CUDA_AVAILABLE = setup_cuda()
 # -----------------------
 # CONFIG
 # -----------------------
@@ -105,12 +128,13 @@ class NodeConfig:
         config = ConfigManager.load_json(
             self.config_file,
             {
-                "miner_address": "",
-                "difficulty": 4,
+                "miner_address": "LUN_e93d86a530870259_7fdd8f27",
+                "difficulty": 1,
                 "mining_reward": 1.0,
                 "transaction_fee": 0.1,
                 "auto_mine": False,
                 "use_cuda": CUDA_AVAILABLE,
+                "api_base_url": "https://bank.linglin.art/",
                 "bills_mined": [],
                 "created_at": time.time(),
                 "last_sync": 0,
@@ -168,7 +192,7 @@ class NodeConfig:
     def save_config(self):
         config = {key: getattr(self, key) for key in [
             'miner_address', 'difficulty', 'mining_reward', 'transaction_fee',
-            'auto_mine', 'use_cuda', 'bills_mined', 'created_at', 'last_sync', 
+            'auto_mine', 'use_cuda', 'api_base_url', 'bills_mined', 'created_at', 'last_sync', 
             'node_version', 'reward_transactions_mined'
         ]}
         ConfigManager.save_json(self.config_file, config)
@@ -252,7 +276,7 @@ class BlockchainState:
                 
                 # SERVER LOGIC: If blockchain has 1 block (genesis), it expects next block to be index 1
                 reported_height = status_info.get('blocks', 0)
-                difficulty = status_info.get('difficulty', 4)
+                difficulty = status_info.get('difficulty', 1)
                 
                 # The key fix: next_index should equal reported_height
                 next_index = reported_height
@@ -268,7 +292,7 @@ class BlockchainState:
         except Exception as e:
             logger.error(f"❌ Failed to get blockchain info: {e}")
         
-        return {'next_index': 0, 'previous_hash': '0' * 64, 'difficulty': 4, 'reported_height': 0, 'actual_blocks': 0}
+        return {'next_index': 0, 'previous_hash': '0' * 64, 'difficulty': 1, 'reported_height': 0, 'actual_blocks': 0}
 
 class RealBlock:
     """Real block with exact server hash calculation"""
@@ -330,6 +354,7 @@ class RealBlock:
                 attempts = 0
 
         self.mining_time = time.time() - start_time
+        
         print(color_text(f"✅ Block mined! Time: {self.mining_time:.2f}s", Colors.GREEN))
         print(color_text(f"   Nonce: {self.nonce:,} | Hash: {self.hash}", Colors.GREEN))
         return True
@@ -345,7 +370,31 @@ class RealBlock:
             "transactions": self.transactions,
             "miner": self.miner
         }
-
+class Block:
+    """Block class for hash verification"""
+    
+    def __init__(self, index, previous_hash, transactions, nonce=0, timestamp=None):
+        self.index = int(index)
+        self.previous_hash = previous_hash
+        self.timestamp = float(timestamp or time.time())
+        self.transactions = transactions
+        self.nonce = int(nonce)
+        self.hash = ""
+    
+    def calculate_hash(self):
+        """Calculate block hash using the EXACT server method"""
+        # Based on analysis, the server uses sorted compact JSON
+        block_data = {
+            'index': self.index,
+            'previous_hash': self.previous_hash,
+            'timestamp': self.timestamp,
+            'transactions': self.transactions,
+            'nonce': self.nonce
+        }
+        
+        # This should match the server's method
+        block_string = json.dumps(block_data, sort_keys=True, separators=(',', ':'))
+        return hashlib.sha256(block_string.encode()).hexdigest()
 class SmartMiner:
     """Optimized miner with fast reward transaction filtering"""
     
@@ -359,7 +408,78 @@ class SmartMiner:
         self._reward_cache = set()  # Fast lookup of mined reward signatures
         self._cache_timestamp = 0
         self._cache_ttl = 300  # 5 minutes cache TTL
-        
+    def broadcast_reward_transaction(self, reward_data):
+        """Broadcast a reward transaction to the API - UPDATED WITH PROPER HASH"""
+        try:
+            print(color_text("🌐 Broadcasting reward transaction to API...", COLORS["B"]))
+
+            # Generate a proper hash for the reward transaction
+            timestamp = time.time()
+            reward_id = f"reward_{int(timestamp)}_{secrets.token_hex(8)}"
+            
+            # Create hash from reward data to ensure uniqueness
+            hash_data = f"reward:{reward_data.get('to','')}:{reward_data.get('amount',0)}:{reward_data.get('block_height',0)}:{timestamp}"
+            reward_hash = hashlib.sha256(hash_data.encode()).hexdigest()
+
+            # Create proper transaction structure
+            reward_tx = {
+                "type": "reward",
+                "from": "Ling Country Treasury",  # Or "https://bank.linglin.art"
+                "to": reward_data.get("to", ""),
+                "amount": float(reward_data.get("amount", 0)),
+                "description": reward_data.get("description", "Mining reward"),
+                "block_height": int(reward_data.get("block_height", 0)),
+                "timestamp": timestamp,
+                "miner": reward_data.get("to", ""),  # Miner is the recipient
+                "hash": reward_hash,  # Proper hash required by server
+                "signature": reward_id,
+                "transactions_mined": reward_data.get("transactions_mined", 0),
+            }
+
+            # Validate required fields
+            if not reward_tx["to"]:
+                print(color_text("❌ Cannot broadcast reward: missing 'to' address", COLORS["R"]))
+                return False
+
+            if reward_tx["amount"] <= 0:
+                print(color_text("❌ Cannot broadcast reward: invalid amount", COLORS["R"]))
+                return False
+
+            # Validate the transaction before sending
+            validation = validate_reward_transactions([reward_tx], reward_tx["block_height"])
+            if not validation['valid']:
+                print(color_text(f"❌ Reward transaction validation failed: {validation['error']}", COLORS["R"]))
+                return False
+
+            print(color_text(f"📤 Broadcasting reward transaction: {reward_hash[:16]}...", COLORS["B"]))
+            print(color_text(f"   From: {reward_tx['from']}", COLORS["G"]))
+            print(color_text(f"   To: {reward_tx['to']}", COLORS["G"]))
+            print(color_text(f"   Amount: {reward_tx['amount']} LUN", COLORS["G"]))
+            print(color_text(f"   Block: #{reward_tx['block_height']}", COLORS["G"]))
+
+            # Use the broadcast endpoint (same as regular transactions)
+            response = requests.post(
+                f"{self.config.api_base_url}/api/transaction/broadcast",
+                json=reward_tx,
+                timeout=30,
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("status") == "success":
+                    print(color_text("✅ Reward transaction broadcasted successfully!", COLORS["G"]))
+                    print(color_text(f"📝 Transaction hash: {reward_hash}", COLORS["B"]))
+                    return True
+                else:
+                    print(color_text(f"❌ API returned error: {result.get('message', 'Unknown error')}", COLORS["R"]))
+            else:
+                print(color_text(f"❌ API returned status code: {response.status_code}", COLORS["R"]))
+                print(color_text(f"📋 Response: {response.text}", COLORS["O"]))
+
+        except Exception as e:
+            print(color_text(f"❌ Error broadcasting reward transaction: {e}", COLORS["R"]))
+
+        return False
     def _get_reward_signature(self, reward_tx):
         """Generate a unique signature for a reward transaction"""
         recipient = reward_tx.get('to')
@@ -471,37 +591,35 @@ class SmartMiner:
         
         return unmined_rewards
     
-    def scan_for_unmined_rewards(self):
-        """Fast scan for unmined rewards (limited scope for performance)"""
+    def scan_for_unmined_rewards(self, current_block_index):
+        """Scan blockchain for unmined reward transactions - FIXED VERSION"""
         try:
-            print(color_text("🔍 Quick-scanning for unmined rewards...", Colors.BLUE))
-            start_time = time.time()
-            
+            print(color_text("🔍 Scanning blockchain for unmined reward transactions...", Colors.BLUE))
             blockchain_response = requests.get(ENDPOINT_BLOCKCHAIN, timeout=10)
             if blockchain_response.status_code == 200:
                 blockchain_data = blockchain_response.json()
                 
-                # Only scan recent blocks for performance
-                scan_limit = 20  # Only last 20 blocks
-                blocks_to_scan = blockchain_data[-scan_limit:] if len(blockchain_data) > scan_limit else blockchain_data
-                
                 unmined_rewards = []
-                total_rewards_found = 0
-                
-                for block in blocks_to_scan:
+                for block in blockchain_data:
                     transactions = block.get('transactions', [])
                     for tx in transactions:
                         if tx.get('type') == 'reward':
-                            total_rewards_found += 1
-                            if not self.is_reward_already_mined(tx):
-                                unmined_rewards.append(tx)
+                            # FIX: Only include rewards that belong to the CURRENT block we're mining
+                            if tx.get('block_height') == current_block_index:
+                                # Check if this reward hasn't been mined by us yet
+                                if not self.is_reward_already_mined(tx):
+                                    unmined_rewards.append(tx)
+                                else:
+                                    print(color_text(f"⏭️  Skipping mined reward in block {block.get('index')}: {tx.get('to')} for {tx.get('amount')} LUN", Colors.YELLOW))
+                            else:
+                                # Skip rewards from other blocks
+                                print(color_text(f"⏭️  Skipping reward from wrong block {tx.get('block_height')} (mining block {current_block_index})", Colors.ORANGE))
                 
-                scan_time = time.time() - start_time
-                print(color_text(f"💰 Found {len(unmined_rewards)}/{total_rewards_found} unmined rewards in {scan_time:.2f}s", Colors.GREEN))
+                print(color_text(f"💰 Found {len(unmined_rewards)} unmined reward transactions for block #{current_block_index}", Colors.GREEN))
                 return unmined_rewards
                 
         except Exception as e:
-            print(color_text(f"❌ Quick-scan error: {e}", Colors.RED))
+            print(color_text(f"❌ Error scanning for rewards: {e}", Colors.RED))
         
         return []
     
@@ -540,32 +658,7 @@ class SmartMiner:
         except Exception as e:
             print(color_text(f"❌ Error marking reward: {e}", Colors.RED))
     
-    def scan_for_unmined_rewards(self):
-        """Scan blockchain for unmined reward transactions"""
-        try:
-            print(color_text("🔍 Scanning blockchain for unmined reward transactions...", Colors.BLUE))
-            blockchain_response = requests.get(ENDPOINT_BLOCKCHAIN, timeout=10)
-            if blockchain_response.status_code == 200:
-                blockchain_data = blockchain_response.json()
-                
-                unmined_rewards = []
-                for block in blockchain_data:
-                    transactions = block.get('transactions', [])
-                    for tx in transactions:
-                        if tx.get('type') == 'reward':
-                            # Check if this reward hasn't been mined by us yet
-                            if not self.is_reward_already_mined(tx):
-                                unmined_rewards.append(tx)
-                            else:
-                                print(color_text(f"⏭️  Skipping mined reward in block {block.get('index')}: {tx.get('to')} for {tx.get('amount')} LUN", Colors.YELLOW))
-                
-                print(color_text(f"💰 Found {len(unmined_rewards)} unmined reward transactions", Colors.GREEN))
-                return unmined_rewards
-                
-        except Exception as e:
-            print(color_text(f"❌ Error scanning for rewards: {e}", Colors.RED))
-        
-        return []
+    
     
     def should_include_reward_transaction(self, reward_tx):
         """Determine if we should include a reward transaction in our block"""
@@ -578,7 +671,18 @@ class SmartMiner:
             return False
         
         return True
-    
+    def get_latest_block(self):
+        """Get the latest block from the blockchain"""
+        try:
+            response = requests.get(ENDPOINT_BLOCKCHAIN, timeout=10)
+            if response.status_code == 200:
+                blockchain_data = response.json()
+                if blockchain_data and len(blockchain_data) > 0:
+                    return blockchain_data[-1]  # Return the last block
+        except Exception as e:
+            print(color_text(f"❌ Error getting latest block: {e}", Colors.RED))
+        
+        return None
     def mark_reward_as_mined(self, reward_tx, block_hash):
         """Mark a reward transaction as mined"""
         try:
@@ -608,9 +712,12 @@ class SmartMiner:
                 
         except Exception as e:
             print(color_text(f"❌ Error marking reward as mined: {e}", Colors.RED))
-    
+    def sync_with_network(self):
+        """Sync with network to get latest blockchain state"""
+        print(color_text("🔄 Syncing with network...", Colors.BLUE))
+        return BlockchainState.get_next_block_info()
     def mine_and_submit(self):
-        """Complete mining process - WITH REWARD TRANSACTION SUPPORT"""
+        """Complete mining process - WITH PROPER REWARD TRANSACTION MARKING"""
         try:
             # Get the CORRECT next block info with ACTUAL previous hash
             block_info = BlockchainState.get_next_block_info()
@@ -631,7 +738,7 @@ class SmartMiner:
             mempool_txs = self.get_mempool_transactions()
             
             # Scan for unmined reward transactions in blockchain
-            unmined_rewards = self.scan_for_unmined_rewards()
+            unmined_rewards = self.scan_for_unmined_rewards(next_index)
             
             # Combine all transactions
             all_external_txs = mempool_txs + unmined_rewards
@@ -664,12 +771,17 @@ class SmartMiner:
                 
                 block_data = block.to_dict()
                 print(color_text(f"📤 Submitting block #{next_index}", Colors.BLUE))
-                # In your mine_from_mempool or similar method, add:
-                if not self.get_submission_confirmation():
-                    print(color_text("❌ Mining cancelled by user", Colors.RED))
-                    return False
+                
+                # Get confirmation if not auto-mining
+                if not self.config.auto_mine:
+                    confirm = input(color_text("Submit this block? (y/N): ", Colors.BOLD)).strip().lower()
+                    if confirm not in ['y', 'yes']:
+                        print(color_text("❌ Submission cancelled", Colors.RED))
+                        return False
+                
                 if self.submit_block(block_data):
                     self.blocks_mined += 1
+                    self.sync_with_network()
                     
                     # Add to mining history
                     self.config.add_bill(block.hash, total_reward, transaction_count, our_reward_tx['hash'])
@@ -677,16 +789,23 @@ class SmartMiner:
                     # Track our reward transaction
                     self.config.add_reward_transaction(our_reward_tx['hash'], total_reward, block.hash)
                     
-                    # Mark all external reward transactions as mined
+                    # PROPERLY MARK ALL EXTERNAL REWARD TRANSACTIONS AS MINED
+                    reward_txs_marked = 0
                     for tx in all_external_txs:
                         if tx.get('type') == 'reward':
                             self.mark_reward_as_mined(tx, block.hash)
+                            reward_txs_marked += 1
+                            print(color_text(f"✅ Marked reward TX as mined: {tx.get('to')} for {tx.get('amount')} LUN", Colors.GREEN))
+                    
+                    if reward_txs_marked > 0:
+                        print(color_text(f"🎯 Marked {reward_txs_marked} reward transactions as mined", Colors.MAGENTA))
                     
                     print(color_text(f"🎉 SUCCESS! Block #{next_index} accepted", Colors.GREEN))
                     print(color_text(f"💰 Reward: {total_reward} LUN", Colors.YELLOW))
                     print(color_text(f"📊 Transactions: {transaction_count}", Colors.BLUE))
                     print(color_text(f"⏱️  Time: {block.mining_time:.2f}s", Colors.CYAN))
-                    print(color_text(f"🎯 Reward TX: {our_reward_tx['hash'][:16]}...", Colors.MAGENTA))
+                    print(color_text(f"🎯 Our Reward TX: {our_reward_tx['hash'][:16]}...", Colors.MAGENTA))
+                    print(color_text(f"📝 Block Hash: {block.hash[:16]}...", Colors.CYAN))
                     return True
                 else:
                     print(color_text(f"❌ Failed to submit block #{next_index}", Colors.RED))
@@ -697,6 +816,8 @@ class SmartMiner:
             
         except Exception as e:
             print(color_text(f"💥 Mining error: {e}", Colors.RED))
+            import traceback
+            traceback.print_exc()
             return False
     def submit_block(self, block_data):
         """Submit mined block to the API with confirmation"""
@@ -846,17 +967,20 @@ class SmartMiner:
         return True
     def create_reward_transaction(self, amount, block_height, transaction_count=0):
         """Create mining reward transaction with proper structure"""
-        # Generate a unique hash for this reward transaction
-        reward_data = f"reward_{self.miner_address}_{amount}_{block_height}_{transaction_count}_{time.time()}"
+        # FIX: Use the CURRENT block height, not previous
+        current_block_height = block_height
+        
+        reward_data = f"reward_{self.miner_address}_{amount}_{current_block_height}_{transaction_count}_{time.time()}"
         reward_tx_hash = hashlib.sha256(reward_data.encode()).hexdigest()
         
         return {
             "type": "reward",
             "to": self.miner_address,
+            "from": "Ling Country Treasury",
             "amount": float(amount),
             "timestamp": time.time(),
-            "block_height": int(block_height),
-            "description": f"Mining reward for block {block_height} with {transaction_count} transactions",
+            "block_height": int(current_block_height),  # FIX: Use current block height
+            "description": f"Mining reward for block {current_block_height} with {transaction_count} transactions",
             "transactions_included": transaction_count,
             "miner": self.miner_address,
             "fee_reward": float(transaction_count * self.config.transaction_fee),
