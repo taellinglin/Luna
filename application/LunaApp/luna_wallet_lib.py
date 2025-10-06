@@ -15,6 +15,7 @@ import requests
 from cryptography.fernet import Fernet
 import base64
 import datetime
+import qrcode
 
 class SecureDataManager:
     """Handles encrypted storage and data management"""
@@ -121,16 +122,34 @@ class LunaWallet:
     def initialize_wallet(self, password, label="Primary Wallet"):
         """Initialize a new wallet with password protection"""
         try:
+            # Validate password
+            if not password or len(password) < 1:
+                self._handle_error("Password cannot be empty")
+                return False
+                
             # Create first wallet
-            self.create_wallet(label)
+            wallet_address = self.create_wallet(label)
+            if not wallet_address:
+                self._handle_error("Failed to create wallet structure")
+                return False
+                
+            print(f"DEBUG: Created wallet with address: {wallet_address}")
             
             # Save with encryption
             if self.save_wallet(password):
                 self.is_unlocked = True
+                print("DEBUG: Wallet successfully initialized and saved")
                 return True
-            return False
+            else:
+                self._handle_error("Failed to save encrypted wallet")
+                # Clean up the created wallet if save fails
+                self.wallets = []
+                return False
+                
         except Exception as e:
-            self._handle_error(f"Initialization failed: {e}")
+            self._handle_error(f"Initialization failed: {str(e)}")
+            import traceback
+            print(f"DEBUG: Traceback: {traceback.format_exc()}")
             return False
 
     def unlock_wallet(self, password):
@@ -162,44 +181,74 @@ class LunaWallet:
 
     def save_wallet(self, password=None):
         """Save wallet with encryption"""
-        if not self.is_unlocked:
+        if not self.is_unlocked and password is None:
+            self._handle_error("Wallet not unlocked and no password provided")
             return False
             
-        if password is None and not self.wallets:
+        if not self.wallets:
+            self._handle_error("No wallets to save")
             return False
             
         try:
+            # Use existing password if wallet is unlocked but no new password provided
+            if password is None and self.is_unlocked:
+                # We need to handle this case - for now, we can't save without a password
+                self._handle_error("Password required for saving")
+                return False
+                
             success = SecureDataManager.save_encrypted_wallet(
                 self.wallet_file, self.wallets, password
             )
             if success:
                 SecureDataManager.save_json(self.pending_file, self.pending_txs)
-            return success
+                print("DEBUG: Wallet saved successfully")
+                return True
+            else:
+                self._handle_error("SecureDataManager failed to save wallet")
+                return False
+                
         except Exception as e:
-            self._handle_error(f"Save failed: {e}")
+            self._handle_error(f"Save failed: {str(e)}")
+            import traceback
+            print(f"DEBUG: Save traceback: {traceback.format_exc()}")
             return False
 
     # Wallet Management
     def create_wallet(self, label):
         """Create a new wallet"""
-        private_key = secrets.token_hex(32)
-        public_key = hashlib.sha256(private_key.encode()).hexdigest()
-        address = f"LUN_{public_key[:16]}_{secrets.token_hex(4)}"
-        
-        wallet = {
-            "address": address,
-            "label": label,
-            "public_key": public_key,
-            "private_key": private_key,
-            "balance": 0.0,
-            "pending_send": 0.0,
-            "transactions": [],
-            "created": time.time(),
-            "is_our_wallet": True
-        }
-        
-        self.wallets.append(wallet)
-        return address
+        try:
+            # Validate label
+            if not label or not label.strip():
+                label = "Primary Wallet"
+                
+            # Generate secure keys
+            private_key = secrets.token_hex(32)
+            if len(private_key) != 64:
+                self._handle_error("Invalid private key generated")
+                return None
+                
+            public_key = hashlib.sha256(private_key.encode()).hexdigest()
+            address = f"LUN_{public_key[:16]}_{secrets.token_hex(4)}"
+            
+            wallet = {
+                "address": address,
+                "label": label.strip(),
+                "public_key": public_key,
+                "private_key": private_key,
+                "balance": 0.0,
+                "pending_send": 0.0,
+                "transactions": [],
+                "created": time.time(),
+                "is_our_wallet": True
+            }
+            
+            self.wallets.append(wallet)
+            print(f"DEBUG: Wallet created successfully: {address}")
+            return address
+            
+        except Exception as e:
+            self._handle_error(f"Create wallet failed: {str(e)}")
+            return None
 
     def import_wallet(self, private_key_hex, label=""):
         """Import wallet from private key"""
@@ -258,17 +307,32 @@ class LunaWallet:
         return None
 
     # Transaction Operations
+    # Transaction Operations
     def send_transaction(self, to_address, amount, memo="", password=None):
-        """Send transaction to address"""
+        """Send transaction to address with safety checks"""
         if not self.is_unlocked or not self.wallets:
             return False
 
         wallet = self.wallets[0]
         available_balance = wallet["balance"] - wallet["pending_send"]
         
+        # Prevent negative balance
         if available_balance < amount:
-            self._handle_error(f"Insufficient balance. Available: {available_balance} LKC")
+            self._handle_error(f"Insufficient balance. Available: {available_balance:.6f} LKC")
             return False
+        
+        # Check for duplicate pending transactions
+        current_time = time.time()
+        duplicate_check_window = 300  # 5 minutes
+        
+        for pending_tx in self.pending_txs:
+            if (pending_tx.get("from") == wallet["address"] and 
+                pending_tx.get("to") == to_address and 
+                pending_tx.get("amount") == amount and
+                pending_tx.get("status") == "pending" and
+                current_time - pending_tx.get("timestamp", 0) < duplicate_check_window):
+                self._handle_error("Duplicate transaction detected. Please wait for the previous transaction to confirm.")
+                return False
 
         # Create transaction
         tx = {
@@ -278,7 +342,7 @@ class LunaWallet:
             "amount": float(amount),
             "fee": 0.00001,
             "nonce": int(time.time() * 1000),
-            "timestamp": time.time(),
+            "timestamp": current_time,
             "memo": memo,
         }
         
@@ -287,9 +351,15 @@ class LunaWallet:
         tx["signature"] = hashlib.sha256(tx_data.encode()).hexdigest()
         tx["hash"] = hashlib.sha256(json.dumps(tx, sort_keys=True).encode()).hexdigest()
 
+        # Double-check balance before broadcasting
+        final_available = wallet["balance"] - wallet["pending_send"]
+        if final_available < amount:
+            self._handle_error(f"Balance changed. Available: {final_available:.6f} LKC, needed: {amount:.6f} LKC")
+            return False
+
         # Broadcast to mempool
         try:
-            response = requests.post("https://bank.linglin.art/mempool/add", json=tx, timeout=10)
+            response = requests.post("https://bank.linglin.art/mempool/add", json=tx, timeout=1000)
             if response.status_code == 201:
                 # Add to pending
                 self.pending_txs.append({
@@ -298,18 +368,19 @@ class LunaWallet:
                     "to": to_address,
                     "amount": amount,
                     "status": "pending",
-                    "timestamp": time.time()
+                    "timestamp": current_time
                 })
                 
                 wallet["pending_send"] += amount
                 self.save_wallet()
                 self._trigger_callback(self.on_balance_changed)
                 return True
+            else:
+                self._handle_error(f"Network error: {response.status_code}")
         except Exception as e:
             self._handle_error(f"Send failed: {e}")
         
         return False
-
     # Blockchain Operations
     def scan_blockchain(self):
         """Manual blockchain scan"""
@@ -442,7 +513,7 @@ class LunaWallet:
     def _get_blockchain(self):
         """Get blockchain data from network"""
         try:
-            response = requests.get("https://bank.linglin.art/blockchain", timeout=10)
+            response = requests.get("https://bank.linglin.art/blockchain", timeout=1000)
             if response.status_code == 200:
                 return response.json()
         except Exception as e:
@@ -465,7 +536,7 @@ class LunaWallet:
         if hasattr(self, 'scanning'):
             self.scanning = False
         if hasattr(self, 'scan_thread') and self.scan_thread:
-            self.scan_thread.join(timeout=1)
+            self.scan_thread.join(timeout=100)
 
     def _auto_scanner(self):
         """Background auto-scanner"""
@@ -518,20 +589,48 @@ class LunaWallet:
         return all_transactions
 
     def generate_qr_code(self, address):
-        """Generate QR code data for address"""
+        """Generate QR code data for address - ultra compatible version"""
         try:
-            qr = qrcode.QRCode(version=1, box_size=4, border=4)
-            qr.add_data(address)
-            qr.make(fit=True)
+            import qrcode
             
-            img = qr.make_image(fill_color="black", back_color="white")
+            # Minimal QR code creation
+            qr = qrcode.QRCode()
+            qr.add_data(address)
+            qr.make()
+            image_factory = qr.image_factory
+            img = qr.make_image(image_factory)
+            bio = io.BytesIO()
+            img.save(bio)
+            bio.seek(0)
+            return bio
+            
+        except Exception as e:
+            self._handle_error(f"QR generation error: {e}")
+            # Return None or create a simple placeholder
+            return self._create_placeholder_qr(address)
+
+    def _create_placeholder_qr(self, address):
+        """Create a simple text-based placeholder when QR fails"""
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            import textwrap
+            
+            # Create a simple image with the address text
+            img = Image.new('RGB', (200, 200), color='white')
+            d = ImageDraw.Draw(img)
+            
+            # Wrap text to fit
+            wrapped_text = textwrap.fill(address, width=20)
+            d.text((10, 10), wrapped_text, fill='black')
+            
             bio = io.BytesIO()
             img.save(bio, format='PNG')
             bio.seek(0)
             return bio
-        except Exception as e:
-            self._handle_error(f"QR generation error: {e}")
+        except:
+            # Final fallback - return None
             return None
+            
 
     # Callback Management
     def _trigger_callback(self, callback, *args):

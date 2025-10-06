@@ -1,3 +1,6 @@
 kivy>=2.3.1
-https://github.com/CarbonKivy/CarbonKivy/ui-shell-header.zip
+git+https://github.com/CarbonKivy/CarbonKivy.git
 watchdog>=4.0.1
+cryptography
+qrcode
+pillow
