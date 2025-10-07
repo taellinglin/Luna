@@ -30,7 +30,9 @@ class UI(CScreenManager):
         super(UI, self).__init__(*args, **kwargs)
         self.transition = FT(duration=0.05, clearcolor=[1, 1, 1, 0])
 
+
 from carbonkivy.devtools import LiveApp
+
 
 class LunaApp(CarbonApp, LiveApp):
 

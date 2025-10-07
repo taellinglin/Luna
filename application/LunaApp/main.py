@@ -6,7 +6,7 @@ Window.maximize()
 
 import webbrowser
 
-from carbonkivy.app import CarbonApp
+from kivy.app import App
 from carbonkivy.uix.screenmanager import CScreenManager
 from kivy.clock import Clock, mainthread
 from kivy.uix.screenmanager import FadeTransition as FT
@@ -37,7 +37,7 @@ class LunaApp(CarbonApp):
         super(LunaApp, self).__init__(*args, **kwargs)
         self.theme = "Gray100"
         self.title = "Luna V1.0"
-        self.load_all_kv_files(self.directory)
+
         self.loading_layout = LoadingLayout()
 
     def build(self) -> UI:

@@ -5,6 +5,7 @@ import urllib
 try:
     import urllib.request
     import urllib.error
+
     # Create a simple SSL context that should work with PyInstaller
     # Configure SSL at application startup
 

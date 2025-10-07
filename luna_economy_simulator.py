@@ -810,9 +810,11 @@ class EconomicSimulator:
         print(
             color_text(
                 f"🏦 Wealth Gini: {self.economy_metrics['wealth_gini']:.3f}",
-                COLORS["R"]
-                if self.economy_metrics["wealth_gini"] > 0.5
-                else COLORS["G"],
+                (
+                    COLORS["R"]
+                    if self.economy_metrics["wealth_gini"] > 0.5
+                    else COLORS["G"]
+                ),
             )
         )
         print(
@@ -945,9 +947,11 @@ class EconomicSimulator:
             print(
                 color_text(
                     f"  Gini Coefficient: {self.economy_metrics['wealth_gini']:.3f}",
-                    COLORS["R"]
-                    if self.economy_metrics["wealth_gini"] > 0.5
-                    else COLORS["G"],
+                    (
+                        COLORS["R"]
+                        if self.economy_metrics["wealth_gini"] > 0.5
+                        else COLORS["G"]
+                    ),
                 )
             )
 

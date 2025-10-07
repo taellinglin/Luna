@@ -63,9 +63,11 @@ class WalletServer:
                 return {
                     "status": "success",
                     "blockchain_height": len(self.blockchain.chain),
-                    "latest_block_hash": self.blockchain.chain[-1].hash
-                    if self.blockchain.chain
-                    else None,
+                    "latest_block_hash": (
+                        self.blockchain.chain[-1].hash
+                        if self.blockchain.chain
+                        else None
+                    ),
                     "pending_transactions": len(self.blockchain.pending_transactions),
                     "difficulty": self.blockchain.difficulty,
                     "base_reward": self.blockchain.base_mining_reward,
@@ -153,9 +155,9 @@ class WalletServer:
                 success = self.blockchain.clear_mempool()
                 return {
                     "status": "success" if success else "error",
-                    "message": "Mempool cleared"
-                    if success
-                    else "Failed to clear mempool",
+                    "message": (
+                        "Mempool cleared" if success else "Failed to clear mempool"
+                    ),
                 }
 
             return {"status": "error", "message": "Unknown action"}

@@ -47,7 +47,7 @@ for component_path in component_dirs:
 # """
 # Registers custom fonts to the Kivy LabelBase.
 
-# Below code searches for all directories within the "assets/fonts" directory and registers each font to the Kivy LabelBase. 
+# Below code searches for all directories within the "assets/fonts" directory and registers each font to the Kivy LabelBase.
 # Once registered, the fonts can be used without explicitly importing them elsewhere in the kvlang files.
 
 # To successfully register the fonts, the directory structure should contain font files for regular, bold, italic, and bolditalic styles, as shown below:
