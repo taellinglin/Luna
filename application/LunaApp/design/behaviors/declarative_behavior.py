@@ -13,7 +13,7 @@ __all__ = ("DeclarativeBehavior",)
 from kivy.properties import StringProperty
 from kivy.uix.widget import Widget
 
-from carbonkivy.utils import _Dict
+from design.utils import _Dict
 
 
 class DeclarativeBehavior:

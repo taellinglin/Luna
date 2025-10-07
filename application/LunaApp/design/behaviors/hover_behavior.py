@@ -8,7 +8,7 @@ from kivy.core.window import Window
 from kivy.properties import BooleanProperty, ColorProperty, ListProperty
 from kivy.uix.relativelayout import RelativeLayout
 
-from carbonkivy.utils import DEVICE_TYPE
+from design.utils import DEVICE_TYPE
 
 from .background_color_behavior import BackgroundColorBehavior
 
