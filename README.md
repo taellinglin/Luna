@@ -1,7 +1,7 @@
 ```markdown
 # Luna Wallet & Node
-![Luna Logo](./node_icon.ico)
-![Luna Logo](./wallet_icon.ico)
+![Luna Logo]('./node_icon.ico')
+![Luna Logo]('./wallet_icon.ico')
 
 A secure, decentralized cryptocurrency wallet and node implementation built with PySide6.
 
@@ -156,6 +156,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Uses cryptography libraries from the Python ecosystem
 - Inspired by modern wallet design principles
 ```
+
 
 
 
