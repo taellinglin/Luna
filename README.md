@@ -1,4 +1,3 @@
-```markdown
 # Luna Wallet & Node
 
 <p align="center">
@@ -77,4 +76,5 @@ This is a personal project for learning cryptocurrency wallet and node developme
 ## License
 
 MIT License - see LICENSE file for details.
-```
+
+
