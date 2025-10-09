@@ -17,28 +17,7 @@
   <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
   <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
   <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
+
 </p>
 
 # Luna Wallet & Node
@@ -114,6 +93,7 @@ This is a personal project for learning cryptocurrency wallet and node developme
 ## License
 
 MIT License - see LICENSE file for details.
+
 
 
 
