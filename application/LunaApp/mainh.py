@@ -6,8 +6,8 @@ Window.maximize()
 
 import webbrowser
 
-from carbonkivy.app import CarbonApp
-from carbonkivy.uix.screenmanager import CScreenManager
+from design.app import LunaApp
+from design.uix.screenmanager import LScreenManager
 from kivy.clock import Clock, mainthread
 from kivy.uix.screenmanager import FadeTransition as FT
 
@@ -25,16 +25,16 @@ def set_softinput(*args) -> None:
 Window.on_restore(Clock.schedule_once(set_softinput, 0.1))
 
 
-class UI(CScreenManager):
+class UI(LScreenManager):
     def __init__(self, *args, **kwargs):
         super(UI, self).__init__(*args, **kwargs)
         self.transition = FT(duration=0.05, clearcolor=[1, 1, 1, 0])
 
 
-from carbonkivy.devtools import LiveApp
+from design.devtools import LiveApp
 
 
-class LunaApp(CarbonApp, LiveApp):
+class LunaApp(LunaApp, LiveApp):
 
     def __init__(self, *args, **kwargs):
         super(LunaApp, self).__init__(*args, **kwargs)

@@ -1,4 +1,4 @@
-__app_name__ = "Luna"
+__app_name__ = "LunaDesign"
 __version__ = "0.0.1"
 
 from kivy.logger import Logger

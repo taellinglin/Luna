@@ -2,7 +2,7 @@ import os
 
 from kivy.lang import Builder
 
-from carbonkivy.config import UIX
+from design.config import UIX
 
 from .label import LLabel
 
