@@ -1,46 +1,28 @@
 <p align="center">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-  <img src="./wallet_icon.ico" alt="Luna Wallet Icon" width="32">
-  <img src="./node_icon.ico" alt="Luna Node Icon" width="32">
-
+<img src= "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4b8/512.webp" , width = "100">
 </p>
 
 # Luna Wallet & Node
 
-A PySide6-based cryptocurrency wallet and node implementation.
+<p>A PySide6-based cryptocurrency wallet and node implementation.<img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f601/512.webp", width="20"></p>
 
 ## Features
 
 ### Luna Wallet
-- GUI cryptocurrency wallet built with PySide6
-- Basic transaction functionality
-- Cross-platform support (Windows, Linux, macOS)
+<p><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f31f/512.webp", width = "20">GUI cryptocurrency wallet built with PySide6 </p>
+<p><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f31f/512.webp", width = "20">Basic transaction functionality</p>
+<p><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f31f/512.webp", width = "20">Cross-platform support (Windows, Linux, macOS)</p>
 
 ### Luna Node
-- Blockchain node implementation
-- Peer-to-peer networking
-- Transaction validation
+<p><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f31f/512.webp", width = "20">Blockchain node implementation</p>
+<p><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f31f/512.webp", width = "20">Peer-to-peer networking</p>
+<p><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f31f/512.webp", width = "20">Transaction validation</p>
 
 ## Requirements
 
-- Python 3.8+
-- PySide6
-- Additional dependencies in `requirements.txt`
+<p><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/203c_fe0f/512.webp", width = "20">Python 3.8+</p>
+<p><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/203c_fe0f/512.webp", width = "20">PySide6</p>
+<p><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/203c_fe0f/512.webp", width = "20">Additional dependencies in `requirements.txt`</p>
 
 ## Installation
 
@@ -92,7 +74,7 @@ This is a personal project for learning cryptocurrency wallet and node developme
 
 ## License
 
-MIT License - see LICENSE file for details.
+<p><img src="https://fonts.gstatic.com/s/e/notoemoji/latest/26a0_fe0f/512.webp", width="20">MIT License - see LICENSE file for details.</p>
 
 
 
