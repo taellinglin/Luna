@@ -34,4 +34,5 @@ class LunaApp(App, LunaTheme):
                     and "__MACOS" not in root  # if use Mac OS
                 ):
                     path_to_kv_file = os.path.join(root, file)
-                    Builder.load_file(path_to_kv_file)
+                    if not path_to_kv_file in Builder.files:
+                        Builder.load_file(path_to_kv_file)
