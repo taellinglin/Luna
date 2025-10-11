@@ -14,20 +14,32 @@ Registers custom components to the Kivy Factory.
 This code registers each component within the "uix" directory to the Kivy Factory. 
 Once registered, the components can be used without explicitly importing them elsewhere in the kvlang files.
 """
+register("LScreen", module="design.uix.screen")
+register("LBoxLayout", module="design.uix.boxlayout")
+register("LStackLayout", module="design.uix.stacklayout")
+register("LAnchorLayout", module="design.uix.anchorlayout")
+register("LGridLayout", module="design.uix.gridlayout")
+register("LLabel", module="design.uix.label")
+register("LDivider", module="design.uix.divider")
+register("LScrollView", module="design.uix.scrollview")
+register("LIcon", module="design.uix.icon")
+register("LIconCircular", module="design.uix.icon")
+register("LBaseIcon", module="design.uix.icon")
+
 
 # Register the behavior with Kivy's Factory
-register("AdaptiveBehavior", "design.behaviors.adpative_behavior")
+register("AdaptiveBehavior", module="design.behaviors.adaptive_behavior")
 register(
-    "BackgroundColorBehaviorCircular", "design.behaviors.background_color_behavior"
+    "BackgroundColorBehaviorCircular", module="design.behaviors.background_color_behavior"
 )
 register(
     "BackgroundColorBehaviorRectangular",
-    "design.behaviors.background_color_behavior",
+    module="design.behaviors.background_color_behavior",
 )
-register("ElevationBehavior", "design.behaviors.elevation_behavior")
-register("HierarchicalLayerBehavior", "design.behaviors.hierarchical_layer_behavior")
-register("HoverBehavior", "design.behaviors.hover_behavior")
-register("StateFocusBehavior", "design.behaviors.state_focus_behavior")
+register("ElevationBehavior", module="design.behaviors.elevation_behavior")
+register("HierarchicalLayerBehavior", module="design.behaviors.hierarchical_layer_behavior")
+register("HoverBehavior", module="design.behaviors.hover_behavior")
+register("StateFocusBehavior", module="design.behaviors.state_focus_behavior")
 
 
 # Alias for the register function from Factory

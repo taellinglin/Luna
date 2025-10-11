@@ -1,11 +1,11 @@
-# main.py
-from kivy.core.window import Window
 import webbrowser
+
+from kivy.core.window import Window
+from kivy.clock import Clock, mainthread
+from kivy.uix.screenmanager import FadeTransition as FT
 
 from design.app import LunaApp
 from design.uix.screenmanager import LScreenManager
-from kivy.clock import Clock, mainthread
-from kivy.uix.screenmanager import FadeTransition as FT
 
 Clock.max_iteration = 60
 
@@ -38,15 +38,14 @@ class LunaApp(LunaApp):
         return self.manager_screens
 
     def generate_application_screens(self) -> None:
-        # Import and register all screens
         import View.screens
         
         screens = View.screens.screens
 
         for i, name_screen in enumerate(screens.keys()):
             model = screens[name_screen]["model"]()
-            controller = screens[name_screen]["controller"](model)
-            view = screens[name_screen]["view"](controller=controller)
+            view = screens[name_screen]["object"]()
+            view.view_model = model
             view.manager_screens = self.manager_screens
             view.name = name_screen
 
