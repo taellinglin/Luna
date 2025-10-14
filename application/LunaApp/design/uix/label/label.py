@@ -7,14 +7,14 @@ from kivy.uix.label import Label
 
 from design.behaviors import (
     AdaptiveBehavior,
-    BackgroundColorBehaviorRectangular,
+    BackgroundColorBehaviorCircular,
     DeclarativeBehavior,
 )
 from design.theme.size_tokens import font_style_tokens
 
 
 class LLabel(
-    AdaptiveBehavior, BackgroundColorBehaviorRectangular, DeclarativeBehavior, Label
+    AdaptiveBehavior, BackgroundColorBehaviorCircular, DeclarativeBehavior, Label
 ):
 
     style = OptionProperty("body_compact_02", options=font_style_tokens.keys())

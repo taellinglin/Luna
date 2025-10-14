@@ -1,4 +1,4 @@
-import webbrowser
+import os, webbrowser
 
 from kivy.core.window import Window
 from kivy.clock import Clock, mainthread
@@ -28,7 +28,7 @@ class LunaApp(LunaApp):
         super(LunaApp, self).__init__(*args, **kwargs)
         self.theme = "dark"
         self.title = "Luna Wallet V1.0"
-        self.load_all_kv_files(self.directory)
+        self.load_all_kv_files(os.path.join(self.directory, "View"))
         # self.loading_layout = LoadingLayout()
         self.wallet_manager = None
 

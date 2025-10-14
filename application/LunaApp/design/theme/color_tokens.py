@@ -400,16 +400,22 @@ thematic_tokens = {
         "dark": "#353535",
     },
     "button_primary": {
-        "light": "#0f62fe",
-        "dark": "#0f62fe",
+        # "light": "#0f62fe",
+        # "dark": "#0f62fe",
+        "light": "#da1e28",
+        "dark": "#da1e28",
     },
     "button_primary_hover": {
-        "light": "#0353e9",
-        "dark": "#0353e9",
+        # "light": "#0353e9",
+        # "dark": "#0353e9",
+        "light": "#ba1b23",
+        "dark": "#ba1b23",
     },
     "button_primary_active": {
-        "light": "#002d9c",
-        "dark": "#002d9c",
+        # "light": "#002d9c",
+        # "dark": "#002d9c",
+        "light": "#750e13",
+        "dark": "#750e13",
     },
     "button_secondary": {
         "light": "#393939",

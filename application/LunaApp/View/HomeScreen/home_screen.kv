@@ -3,11 +3,13 @@
     LStackLayout:
         size_hint: 1, 1
         padding: dp(16)
+        spacing: dp(16)
 
         LLabel:
             text: "Luna Wallet"
             style: "heading_06"
             halign: "center"
+
 
         LDivider:
 
@@ -17,7 +19,9 @@
             adaptive: [False, True]
 
             LAnchorLayout:
-                LIcon:
+
+                LButtonPrimary:
+                    text: "Home"
                     icon: "home"
 
             LAnchorLayout:
