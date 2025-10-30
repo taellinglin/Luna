@@ -1,8 +1,7 @@
+import os
 from kivy.core.window import Window
 
 import registers
-
-Window.maximize()
 
 import webbrowser
 
@@ -13,6 +12,7 @@ from kivy.uix.screenmanager import FadeTransition as FT
 
 from View.base_screen import LoadingLayout
 
+from design.devtools import LiveApp
 
 Clock.max_iteration = 60
 
@@ -31,25 +31,29 @@ class UI(LScreenManager):
         self.transition = FT(duration=0.05, clearcolor=[1, 1, 1, 0])
 
 
-from design.devtools import LiveApp
-
-
 class LunaApp(LunaApp, LiveApp):
 
     def __init__(self, *args, **kwargs):
+        self.theme = "dark"
+        self.kv_directory = os.path.join(os.path.dirname(__file__), "View")
         super(LunaApp, self).__init__(*args, **kwargs)
         self.title = "Luna V1.0"
-        # self.load_all_kv_files(self.directory)
 
     def build_app(self) -> UI:
         self.manager_screens = UI()
         self.loading_layout = LoadingLayout()
         self.generate_application_screens()
+        from kivy.lang import Builder
+        print(Builder.files)
         return self.manager_screens
+
+    def on_start(self, *args) -> None:
+        Clock.schedule_once(lambda dt: self.loading_state(True))
 
     def generate_application_screens(self) -> None:
         # adds different screen widgets to the screen manager
-        import View.screens
+        import View.screens, importlib
+        importlib.reload(View.screens)
 
         screens = View.screens.screens
 

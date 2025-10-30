@@ -60,8 +60,6 @@ class LButton(
 
     _text_color = ColorProperty()
 
-    lbutton_layout = ObjectProperty()
-
     role = OptionProperty(
         "Medium",
         options=[
@@ -73,8 +71,6 @@ class LButton(
             "2XL",
         ],
     )
-
-    actual_width = NumericProperty()
 
     font_size = NumericProperty()
 

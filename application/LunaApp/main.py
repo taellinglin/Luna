@@ -1,4 +1,8 @@
-import os, webbrowser
+import os, webbrowser, sys
+from kivy.resources import resource_add_path
+
+sys.path.insert(0, os.path.dirname(__file__))
+resource_add_path(os.path.dirname(__file__))
 
 from kivy.core.window import Window
 from kivy.clock import Clock, mainthread
@@ -6,6 +10,8 @@ from kivy.uix.screenmanager import FadeTransition as FT
 
 from design.app import LunaApp
 from design.uix.screenmanager import LScreenManager
+
+from View.base_screen import LoadingLayout
 
 Clock.max_iteration = 60
 
@@ -29,7 +35,7 @@ class LunaApp(LunaApp):
         self.theme = "dark"
         self.title = "Luna Wallet V1.0"
         self.load_all_kv_files(os.path.join(self.directory, "View"))
-        # self.loading_layout = LoadingLayout()
+        self.loading_layout = LoadingLayout()
         self.wallet_manager = None
 
     def build(self) -> UI:
@@ -58,15 +64,15 @@ class LunaApp(LunaApp):
     def web_open(self, url: str) -> None:
         webbrowser.open_new_tab(url)
 
-    # @mainthread
-    # def loading_state(self, state: bool = False, master: object = Window, *args) -> None:
-    #     try:
-    #         if state:
-    #             master.add_widget(self.loading_layout)
-    #         else:
-    #             master.remove_widget(self.loading_layout)
-    #     except:
-    #         return None
+    @mainthread
+    def loading_state(self, state: bool = False, master: object = Window, *args) -> None:
+        try:
+            if state:
+                master.add_widget(self.loading_layout)
+            else:
+                master.remove_widget(self.loading_layout)
+        except:
+            return None
 
 if __name__ == "__main__":
     LunaApp().run()

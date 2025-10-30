@@ -376,8 +376,8 @@ thematic_tokens = {
         "dark": "#0f62fe",
     },
     "interactive": {
-        "light": "#0f62fe",
-        "dark": "#4589ff",
+        "light": "#da1e28",
+        "dark": "#fa4d56",
     },
     "highlight": {
         "light": "#d0e2ff",

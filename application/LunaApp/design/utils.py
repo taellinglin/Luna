@@ -44,66 +44,113 @@ def get_latest_time(*args) -> str:
 def update_system_ui(
     status_bar_color: list[float] | str,
     navigation_bar_color: list[float] | str,
-    icon_style: Literal["Light", "Dark"],
+    icon_style: Literal["Light", "Dark"] = "Dark",
+    pad_status: bool = True,
+    pad_nav: bool = False,
 ) -> None:
     """
     Update the color system of the status and navigation bar.
 
     Currently supports Android only.
 
-    The code is taken from AKivyMD project -
-        https://github.com/kivymd-extensions/akivymd
-
-    Source code -
-        kivymd_extensions/akivymd/uix/statusbarcolor.py
-
-    Author Sina Namadian -
-        https://github.com/quitegreensky
-
-    Author Kartavya Shukla (Bug Fix Related to Navigation Icon colors) -
+    Author Kartavya Shukla -
         https://github.com/Novfensec
     """
-
     if platform == "android":
-        from android.runnable import run_on_ui_thread  # type: ignore
-        from jnius import autoclass
+        from android.runnable import run_on_ui_thread
+        from jnius import autoclass, PythonJavaClass, java_method
 
         Color = autoclass("android.graphics.Color")
         WindowManager = autoclass("android.view.WindowManager$LayoutParams")
-        activity = autoclass("org.kivy.android.PythonActivity").mActivity
+        Build_VERSION = autoclass("android.os.Build$VERSION")
+        VERSION_CODES = autoclass("android.os.Build$VERSION_CODES")
+        WindowInsetsType = autoclass("android.view.WindowInsets$Type")
+        PythonActivity = autoclass("org.kivy.android.PythonActivity")
         View = autoclass("android.view.View")
 
-        def statusbar(*args):
-            status_color = None
-            navigation_color = None
-            visibility_flags = 0
+        activity = PythonActivity.mActivity
+        window = activity.getWindow()
+        decor_view = window.getDecorView()
+        content_view = window.findViewById(autoclass('android.R$id').content)
 
-            if status_bar_color:
-                status_color = get_hex_from_color(status_bar_color)[:7]
-            if navigation_bar_color:
-                navigation_color = get_hex_from_color(navigation_bar_color)[:7]
+        try:
+            WindowCompat = autoclass("androidx.core.view.WindowCompat")
+            inset_controller = WindowCompat.getInsetsController(window, window.decorView)
+        except Exception as e:
+            inset_controller = None
 
-            window = activity.getWindow()
+        def parse_color(value):
+            if isinstance(value, str):
+                return Color.parseColor(value)
+            elif isinstance(value, (list, tuple)) and len(value) == 4:
+                return Color.parseColor(value[:7])
+            else:
+                raise ValueError("Color must be hex string or RGBA tuple")
+
+        @run_on_ui_thread
+        def apply_system_bars():
+            status_color_int = parse_color(status_bar_color)
+            navigation_color_int = parse_color(navigation_bar_color)
 
             if icon_style == "Dark":
                 visibility_flags = (
                     View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
                     | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
                 )
-            elif icon_style == "Light":
+                try:
+                    inset_controller.setAppearanceLightStatusBars(False)
+                    inset_controller.setAppearanceLightNavigationBars(False)
+                except Exception as e:
+                    print(e)
+            else:
                 visibility_flags = 0
+                try:
+                    inset_controller.setAppearanceLightStatusBars(True)
+                    inset_controller.setAppearanceLightNavigationBars(True)
+                except Exception as e:
+                    print(e)
 
-            window.getDecorView().setSystemUiVisibility(visibility_flags)
+            decor_view.setSystemUiVisibility(visibility_flags)
 
-            window.clearFlags(WindowManager.FLAG_TRANSLUCENT_STATUS)
-            window.addFlags(WindowManager.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            if Build_VERSION.SDK_INT >= VERSION_CODES.VANILLA_ICE_CREAM:
+                class InsetsListener(PythonJavaClass):
+                    __javainterfaces__ = ['android/view/View$OnApplyWindowInsetsListener']
+                    __javacontext__ = 'app'
 
-            if status_color:
-                window.setStatusBarColor(Color.parseColor(status_color))
-            if navigation_color:
-                window.setNavigationBarColor(Color.parseColor(navigation_color))
+                    def __init__(self, status_color, navigation_color):
+                        super().__init__()
+                        self.status_color = status_color
+                        self.navigation_color = navigation_color
 
-        return run_on_ui_thread(statusbar)()
+                    @java_method('(Landroid/view/View;Landroid/view/WindowInsets;)Landroid/view/WindowInsets;')
+                    def onApplyWindowInsets(self, view, insets):
+                        try:
+                            status_insets = insets.getInsets(WindowInsetsType.statusBars())
+                            nav_insets = insets.getInsets(WindowInsetsType.navigationBars())
+                            if pad_status:
+                                content_view.setPadding(0, status_insets.top, 0, 0)
+                            if pad_nav:
+                                content_view.setPadding(0, 0, 0, nav_insets.bottom)
+                            if pad_status:
+                                content_view.setPadding(0, status_insets.top, 0, 0)
+                            if pad_status and pad_nav:
+                                content_view.setPadding(0, status_insets.top, 0, nav_insets.bottom)
+                            content_view.setBackgroundColor(self.status_color)
+                            window.setNavigationBarColor(self.navigation_color)
+                        except Exception as e:
+                            print("Insets error:", e)
+                            import traceback
+                            traceback.print_exc()
+                        return insets
+
+                listener = InsetsListener(status_color_int, navigation_color_int)
+                decor_view.setOnApplyWindowInsetsListener(listener)
+                decor_view.requestApplyInsets()
+            else:
+                window.setStatusBarColor(status_color_int)
+                window.setNavigationBarColor(navigation_color_int)
+
+        apply_system_bars()
 
 
 class _Dict(DictProperty):
