@@ -14,9 +14,14 @@ Registers custom components to the Kivy Factory.
 This code registers each component within the "uix" directory to the Kivy Factory. 
 Once registered, the components can be used without explicitly importing them elsewhere in the kvlang files.
 """
+register("LBaseIcon", module="design.uix.icon")
+register("LIcon", module="design.uix.icon")
+register("LLabel", module="design.uix.label")
+register("LIconCircular", module="design.uix.icon")
 register("LScreen", module="design.uix.screen")
 register("LBoxLayout", module="design.uix.boxlayout")
 register("LStackLayout", module="design.uix.stacklayout")
+register("LRelativeLayout", module="design.uix.relativelayout")
 register("LAnchorLayout", module="design.uix.anchorlayout")
 register("LButton", module="design.uix.button")
 register("LButtonIcon", module="design.uix.button")
@@ -29,10 +34,11 @@ register("LButtonGhost", module="design.uix.button")
 register("LGridLayout", module="design.uix.gridlayout")
 register("LDivider", module="design.uix.divider")
 register("LScrollView", module="design.uix.scrollview")
-register("LIcon", module="design.uix.icon")
-register("LLabel", module="design.uix.label")
-register("LIconCircular", module="design.uix.icon")
-register("LBaseIcon", module="design.uix.icon")
+register("LTextInput", module="design.uix.textinput")
+register("LTextInputLayout", module="design.uix.textinput")
+register("LTextInputLabel", module="design.uix.textinput")
+register("LTextInputHelperText", module="design.uix.textinput")
+register("LTextInputTrailingIconButton", module="design.uix.textinput")
 
 
 # Register the behavior with Kivy's Factory

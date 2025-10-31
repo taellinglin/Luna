@@ -31,13 +31,7 @@
                         icon: "settings"
                         role: "Large Productive"
 
-        ElevatedInfoLayout:
-            adaptive: [False, True]
-            spacing: dp(16)
-            padding: [dp(16), dp(32)]
-            orientation: "vertical"
-            bg_color: app.layer_01
-            radius: dp(4)
+        ElevatedBoxLayout:
 
             LLabel:
                 text: "Current Balance"
@@ -91,9 +85,29 @@
                     icon: "arrows--horizontal"
                     role: "Extra Large"
 
+        LLabel:
+            text: "Recent Transactions"
+            style: "heading_03"
+            font_name: "ibmplexsans"
+
         LScrollView:
             do_scroll_x: False
 
+            TransactionLayout:
+                id: transaction_layout
 
 
-<ElevatedInfoLayout@LBoxLayout+ElevationBehavior>:
+<ElevatedBoxLayout@LBoxLayout+ElevationBehavior>:
+    adaptive: [False, True]
+    spacing: dp(16)
+    padding: [dp(16), dp(32)]
+    orientation: "vertical"
+    bg_color: app.layer_01
+
+<TransactionLayout@LBoxLayout>:
+    adaptive: [False, True]
+    spacing: dp(16)
+    padding: [dp(16), dp(32)]
+    orientation: "vertical"
+    bg_color: app.layer_01
+    radius: dp(4)
