@@ -5,24 +5,95 @@
         padding: dp(16)
         spacing: dp(16)
 
-        LLabel:
-            text: "Luna Wallet"
-            style: "heading_06"
-            halign: "center"
+        LBoxLayout:
+            adaptive: [False, True]
+            spacing: dp(16)
+
+            AsyncImage:
+                size_hint: None, None
+                fit_mode: "cover"
+                size: dp(32), dp(32)
+                source: "assets/images/wallet_icon.png"
+
+            LLabel:
+                text: "Luna Wallet"
+                style: "heading_03"
+                pos_hint: {"center_y": 0.5}
+
+            LAnchorLayout:
+                anchor_x: "right"
+
+                LGridLayout:
+                    adaptive: [True, True]
+                    rows: 1
+
+                    LButtonGhost:
+                        icon: "settings"
+                        role: "Large Productive"
+
+        ElevatedInfoLayout:
+            adaptive: [False, True]
+            spacing: dp(16)
+            padding: [dp(16), dp(32)]
+            orientation: "vertical"
+            bg_color: app.layer_01
+            radius: dp(4)
+
+            LLabel:
+                text: "Current Balance"
+                halign: "center"
+                style: "label_02"
+
+            LLabel:
+                text: root.wallet_balance
+                halign: "center"
+                style: "heading_06"
+                padding: [dp(8)]
+
+            LLabel:
+                size_hint: None, None
+                size: self.texture_size
+                text_size: None, self.texture_size[1]
+                text: root.wallet_address
+                halign: "center"
+                pos_hint: {"center_x": 0.5}
+                style: "label_02"
+                line_color: app.interactive
+                padding: dp(8)
+                radius: self.height/2
 
         LDivider:
 
         LGridLayout:
             rows: 1
-            size_hint_x: 1
             adaptive: [False, True]
+            spacing: dp(16)
+            padding: dp(16)
 
-            LAnchorLayout:
-
+            AnchorLayout:
+                size_hint: 1, None
+                height: dp(48)
                 LButtonPrimary:
-                    text: "Home"
-                    icon: "home"
+                    icon: "arrow--up"
+                    role: "Extra Large"
 
-            LAnchorLayout:
-                LIconCircular:
-                    icon: "wallet"
+            AnchorLayout:
+                size_hint: 1, None
+                height: dp(48)
+                LButtonPrimary:
+                    icon: "arrow--down"
+                    role: "Extra Large"
+
+            AnchorLayout:
+                size_hint: 1, None
+                height: dp(48)
+                LButtonPrimary:
+                    icon: "arrows--horizontal"
+                    role: "Extra Large"
+
+        LScrollView:
+            do_scroll_x: False
+
+
+
+<ElevatedInfoLayout@LBoxLayout+ElevationBehavior>:

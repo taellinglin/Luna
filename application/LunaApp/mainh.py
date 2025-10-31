@@ -43,12 +43,7 @@ class LunaApp(LunaApp, LiveApp):
         self.manager_screens = UI()
         self.loading_layout = LoadingLayout()
         self.generate_application_screens()
-        from kivy.lang import Builder
-        print(Builder.files)
         return self.manager_screens
-
-    def on_start(self, *args) -> None:
-        Clock.schedule_once(lambda dt: self.loading_state(True))
 
     def generate_application_screens(self) -> None:
         # adds different screen widgets to the screen manager

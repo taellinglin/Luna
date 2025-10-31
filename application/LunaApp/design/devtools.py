@@ -10,7 +10,7 @@ class LiveApp(App):
     def __init__(self, **kwargs) -> None:
         super(LiveApp, self).__init__(**kwargs)
         self.DEBUG = True
-        self.CLASSES = {self.root: "main"}  # main file name or root file name
+        self.CLASSES = {self.root: "mainh"}  # main file name or root file name
 
         self.AUTORELOADER_PATHS = [
             (self.kv_directory, {"recursive": True}),

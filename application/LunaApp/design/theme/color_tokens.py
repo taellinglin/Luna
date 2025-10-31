@@ -260,12 +260,12 @@ thematic_tokens = {
         "dark": ("#f4f4f4", 0.25),
     },
     "link_primary": {
-        "light": "#0f62fe",
-        "dark": "#78a9ff",
+        "light": "#da1e28",
+        "dark": "#fa4d56",
     },
     "link_primary_hover": {
-        "light": "#0043ce",
-        "dark": "#a6c8ff",
+        "light": "#ba1b23",
+        "dark": "#ba1b23",
     },
     "link_secondary": {
         "light": "#0043ce",
@@ -495,7 +495,7 @@ thematic_tokens = {
     },
     "notification_action_tertiary_inverse_hover": {
         "light": "#c6c6c6",
-        "dark": "#c6c6c6",
+        "dark": "#fa4d56",
     },
     "notification_action_tertiary_inverse_text": {
         "light": "#161616",
