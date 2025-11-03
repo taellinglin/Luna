@@ -36,7 +36,7 @@
     spacing: dp(48)
 
     LLabel:
-        text: "Login"
+        text: "Unlock"
         style: "heading_06"
         halign: "center"
         color: app.text_primary
@@ -46,15 +46,6 @@
         spacing: dp(64)
         adaptive: [False, True]
 
-        LTextInputLayout:
-            LTextInput:
-                hint_text: "Enter your username"
-            LTextInputLabel:
-                text: "Username"
-            LTextInputHelperText:
-                text: "Maximum 10 characters"
-
-        
         LTextInputLayout:
 
             LTextInput:
@@ -72,49 +63,12 @@
                     pwd_input.password = (not pwd_input.password)
 
     LBoxLayout:
+        orientation: "vertical"
         spacing: dp(3)
         adaptive: [False, True]
 
         LButtonPrimary:
-            text: "Login"
-            icon: "login"
+            text: "Unlock"
+            icon: "unlocked"
+            pos_hint: {"center_x": 0.5}
             role: "Large Productive"
-            size_hint_x: 0.5
-
-        LButtonSecondary:
-            text: "Signup"
-            icon: "user--profile"
-            role: "Large Productive"
-            size_hint_x: 0.5
-
-    LDivider:
-
-    LLabel:
-        text: "or continue with..."
-        style: "body_compact_02"
-        color: app.text_secondary
-        halign: "center"
-        adaptive: [False, True]
-
-    GridLayout:
-        cols:2
-        size_hint: 1, None
-        height: self.minimum_height
-
-        AnchorLayout:
-
-            LButtonGhost:
-                font_size: plex_48
-                text_color: app.text_primary
-                icon: "logo--github"
-                role: "2XL"
-                spacing: 0
-
-        AnchorLayout:
-
-            LButtonGhost:
-                font_size: plex_48
-                icon: "logo--facebook"
-                role: "2XL"
-                spacing: 0
-
