@@ -1,0 +1,18 @@
+<TransactionTile>:
+    padding: dp(16)
+    spacing: dp(16)
+    radius: dp(8)
+    adaptive: [False, True]
+
+    CIcon:
+        icon: "send" if root.type == "sent" else "recieve"
+
+    CBoxLayout:
+        adaptive: [False, True]
+        spacing: dp(16)
+
+        CLabel:
+            text: root.amount
+
+        CLabel:
+            text: root.address
