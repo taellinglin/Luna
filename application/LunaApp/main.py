@@ -4,6 +4,8 @@ from kivy.resources import resource_add_path
 sys.path.insert(0, os.path.dirname(__file__))
 resource_add_path(os.path.dirname(__file__))
 
+import registers
+
 from kivy.core.window import Window
 from kivy.clock import Clock, mainthread
 from kivy.uix.screenmanager import FadeTransition as FT

@@ -4,15 +4,21 @@
     radius: dp(8)
     adaptive: [False, True]
 
-    CIcon:
-        icon: "send" if root.type == "sent" else "recieve"
+    LIcon:
+        icon: "export" if root.type == "sent" else "download"
+        color: app.interactive
+        font_size: plex_24
+        pos_hint: {"center_y": 0.5}
 
-    CBoxLayout:
+    LBoxLayout:
+        orientation: "vertical"
         adaptive: [False, True]
         spacing: dp(16)
 
-        CLabel:
+        LLabel:
             text: root.amount
+            style: "heading_03"
 
-        CLabel:
+        LLabel:
             text: root.address
+            style: "label_02"

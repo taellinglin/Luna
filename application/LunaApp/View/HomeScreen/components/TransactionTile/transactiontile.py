@@ -1,6 +1,6 @@
 from kivy.properties import StringProperty, OptionProperty
 
-from carbonkivy.uix.focuscontainer import FocusContainer
+from design.uix.focuscontainer import FocusContainer
 
 
 class TransactionTile(FocusContainer):
